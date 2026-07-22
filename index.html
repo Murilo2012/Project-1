@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- A tag <!DOCTYPE html> diz ao navegador que este é um documento HTML5 -->
-<html lang="pt-BR">
-<!-- <html> é a tag raiz, que envolve todo o conteúdo da página. lang="pt-BR" indica o idioma do conteúdo -->
+<html lang="en">
+<!-- lang="en" porque todo o conteúdo visível da página agora está em inglês -->
 
 <head>
     <!-- A <head> guarda informações que não aparecem diretamente no corpo da página,
@@ -10,80 +10,131 @@
     <meta charset="UTF-8">
     <!-- Define a codificação de caracteres, permitindo usar acentos e caracteres especiais corretamente -->
 
-    <title>Tudo Sobre Vôlei</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Faz a página se adaptar bem a telas de celular e tablet -->
+
+    <title>All About Volleyball</title>
     <!-- O <title> define o texto que aparece na aba do navegador -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Importa fontes do Google Fonts: Poppins para títulos e Inter para textos -->
+
+    <link rel="stylesheet" href="style.css">
+    <!-- Liga o arquivo de estilos externo (style.css) a esta página -->
 </head>
 
 <body>
-    <!-- O <body> contém todo o conteúdo visível da página: textos, imagens, listas, tabelas, links etc. -->
+    <!-- O <body> contém todo o conteúdo visível da página -->
 
-    <h1>Vôlei: o Esporte da Rede</h1>
-    <!-- <h1> é o título principal da página. Existem tags de título de h1 (maior) até h6 (menor) -->
+    <header class="site-header">
+        <!-- Cabeçalho principal da página, com o título e um subtítulo -->
+        <h1>Volleyball: The Sport of the Net</h1>
+        <p class="subtitle">Rules, skills, and player positions explained</p>
+    </header>
 
-    <p>
-        O vôlei é um esporte coletivo jogado por duas equipes separadas por uma rede.
-        O objetivo é fazer a bola tocar o chão da quadra adversária, sem deixar que ela
-        toque o chão do seu próprio lado. Cada equipe pode tocar na bola até três vezes
-        antes de enviá-la para o outro lado da quadra.
-    </p>
-    <!-- <p> representa um parágrafo de texto -->
+    <main>
+        <!-- <main> agrupa o conteúdo principal da página em seções -->
 
-    <h2>Fundamentos Básicos</h2>
-    <!-- <h2> é um subtítulo, usado para organizar seções dentro da página -->
+        <section class="card" id="intro">
+            <h2>What is Volleyball?</h2>
+            <p>
+                Volleyball is a team sport played by two teams separated by a net.
+                The goal is to make the ball touch the ground on the opponent's side
+                of the court, while preventing it from touching the ground on your
+                own side. Each team may touch the ball up to three times before
+                sending it back over the net.
+            </p>
+        </section>
 
-    <ul>
-        <!-- <ul> cria uma lista não ordenada (com marcadores). Cada item vai dentro de <li> -->
-        <li>Saque</li>
-        <li>Recepção</li>
-        <li>Levantamento</li>
-        <li>Ataque</li>
-        <li>Bloqueio</li>
-        <li>Defesa</li>
-    </ul>
+        <section class="card" id="fundamentals">
+            <h2>Basic Skills</h2>
+            <!-- Lista de habilidades básicas, exibida como "chips" via CSS (flexbox) -->
+            <ul class="skills-list">
+                <li><strong>Serve:</strong> the action of putting the ball in play by hitting it over the net to start a rally.</li>
+                <li><strong>Reception:</strong> the first team contact, used to control the opponent's serve and direct the ball to the setter.</li>
+                <li><strong>Setting:</strong> passing the ball with precision so a teammate can attack it effectively.</li>
+                <li><strong>Attack:</strong> hitting the ball forcefully into the opponent's court to score a point.</li>
+                <li><strong>Block:</strong> jumping at the net to stop or redirect the opponent's attack.</li>
+                <li><strong>Defense:</strong> digging and moving to keep difficult balls off the floor and in play.</li>
+            </ul>
+        </section>
 
-    <h2>Imagem de uma Partida</h2>
+        <section class="card" id="match-photo">
+            <h2>A Volleyball Match</h2>
+            <img src="https://images.unsplash.com/photo-1521138054413-5a47d349b7af?auto=format&fit=crop&w=1000&q=80"
+                 alt="Man playing beach volleyball"
+                 class="match-photo">
+            <!-- Imagem hospedada no Unsplash, conferida visualmente antes de publicar -->
+        </section>
 
-    <img src="https://upload.wikimedia.org/wikipedia/commons/2/28/Beach_volleyball_at_the_2012_Summer_Olympics_9.jpg"
-         alt="Jogadores disputando uma partida de vôlei"
-         width="500">
-    <!-- <img> insere uma imagem na página.
-         "src" é o endereço (URL) da imagem.
-         "alt" é o texto alternativo, exibido caso a imagem não carregue e usado por leitores de tela.
-         "width" define a largura da imagem em pixels -->
+        <section class="card" id="positions">
+            <h2>Player Positions</h2>
+            <p>Volleyball teams rely on five key positions, each with a specific role on the court.</p>
 
-    <h2>Posições dos Jogadores</h2>
+            <!-- Grade de cartões (CSS Grid) com uma posição em cada um -->
+            <div class="positions-grid">
+                <article class="position-card">
+                    <h3>Libero</h3>
+                    <p>
+                        The Libero is a defensive specialist who wears a different colored
+                        jersey and cannot attack the ball above net height. Their main job
+                        is to receive serves and dig hard-driven attacks, keeping the ball
+                        alive for the team.
+                    </p>
+                </article>
 
-    <table border="1">
-        <!-- <table> cria uma tabela. O atributo border="1" desenha as bordas das células -->
-        <tr>
-            <!-- <tr> representa uma linha da tabela (table row) -->
-            <th>Posição</th>
-            <th>Função Principal</th>
-            <!-- <th> é uma célula de cabeçalho (table header), geralmente em negrito -->
-        </tr>
-        <tr>
-            <td>Levantador</td>
-            <td>Organizar o ataque da equipe</td>
-            <!-- <td> é uma célula comum de dados (table data) -->
-        </tr>
-        <tr>
-            <td>Ponteiro</td>
-            <td>Atacar pelas laterais da rede</td>
-        </tr>
-        <tr>
-            <td>Líbero</td>
-            <td>Especialista em defesa e recepção</td>
-        </tr>
-    </table>
+                <article class="position-card">
+                    <h3>Setter</h3>
+                    <p>
+                        The Setter is the playmaker of the team. After the ball is received,
+                        the Setter decides where to place it, setting up teammates with
+                        accurate passes so they can attack effectively.
+                    </p>
+                </article>
 
-    <h2>Saiba Mais</h2>
+                <article class="position-card">
+                    <h3>Outside Hitter</h3>
+                    <p>
+                        The Outside Hitter attacks from the left side of the court and is
+                        usually the team's primary scorer. They also take on serve-receive
+                        and defensive duties, making them one of the most complete players.
+                    </p>
+                </article>
 
-    <p>
-        Para aprender mais sobre as regras oficiais, visite o site da
-        <a href="https://www.fivb.com" target="_blank">FIVB (Federação Internacional de Vôlei)</a>.
-    </p>
-    <!-- <a> cria um link. "href" define o endereço de destino.
-         "target='_blank'" faz o link abrir em uma nova aba -->
+                <article class="position-card">
+                    <h3>Opposite</h3>
+                    <p>
+                        The Opposite plays on the right side of the court, facing the
+                        Setter. They are a key attacking option, especially against strong
+                        blocks, and often help block the opposing team's Outside Hitters.
+                    </p>
+                </article>
+
+                <article class="position-card">
+                    <h3>Middle Blocker</h3>
+                    <p>
+                        The Middle Blocker attacks quickly through the center of the court
+                        and is responsible for reading the opponent's offense to form
+                        blocks against attacks from any position.
+                    </p>
+                </article>
+            </div>
+        </section>
+
+        <section class="card" id="learn-more">
+            <h2>Learn More</h2>
+            <p>
+                To learn more about the official rules, visit the website of the
+                <a href="https://www.fivb.com" target="_blank" rel="noopener">FIVB (International Volleyball Federation)</a>.
+            </p>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <p>Made for learning HTML &amp; CSS &mdash; Volleyball Guide</p>
+    </footer>
 
 </body>
 </html>

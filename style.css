@@ -1,0 +1,153 @@
+/* ===== Variáveis de cor e espaçamento (fica fácil mudar o tema todo aqui) ===== */
+:root {
+    --color-primary: #1d4ed8;   /* azul principal (cabeçalho, links, destaques) */
+    --color-accent: #f97316;    /* laranja de destaque (bola de vôlei) */
+    --color-bg: #f3f4f6;        /* cinza claro de fundo da página */
+    --color-card: #ffffff;      /* branco dos cartões/seções */
+    --color-text: #1f2937;      /* cinza escuro para o texto */
+    --color-muted: #6b7280;     /* cinza médio para textos secundários */
+    --radius: 12px;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* ===== Reset básico ===== */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: 'Inter', Arial, sans-serif;
+    color: var(--color-text);
+    background-color: var(--color-bg);
+    line-height: 1.6;
+}
+
+h1, h2, h3 {
+    font-family: 'Poppins', 'Inter', Arial, sans-serif;
+}
+
+/* ===== Cabeçalho ===== */
+.site-header {
+    background: linear-gradient(135deg, var(--color-primary), #1e3a8a);
+    color: #ffffff;
+    text-align: center;
+    padding: 3rem 1.5rem;
+}
+
+.site-header h1 {
+    margin: 0 0 0.5rem;
+    font-size: 2.2rem;
+}
+
+.site-header .subtitle {
+    margin: 0;
+    font-weight: 400;
+    color: #dbeafe;
+}
+
+/* ===== Layout principal ===== */
+main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Cada seção vira um "cartão" com fundo branco e sombra suave */
+.card {
+    background-color: var(--color-card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.75rem 2rem;
+}
+
+.card h2 {
+    color: var(--color-primary);
+    margin-top: 0;
+    border-bottom: 3px solid var(--color-accent);
+    display: inline-block;
+    padding-bottom: 0.25rem;
+}
+
+/* ===== Lista de habilidades como "chips" (flexbox) ===== */
+.skills-list {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0;
+    margin: 1rem 0 0;
+}
+
+.skills-list li {
+    background-color: #eef2ff;
+    color: var(--color-text);
+    font-weight: 400;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius);
+    flex: 1 1 260px;
+}
+
+.skills-list li strong {
+    color: var(--color-primary);
+}
+
+/* ===== Imagem da partida ===== */
+.match-photo {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius);
+    margin-top: 1rem;
+    box-shadow: var(--shadow);
+}
+
+/* ===== Grade de posições (CSS Grid) ===== */
+.positions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+}
+
+.position-card {
+    background-color: var(--color-bg);
+    border: 1px solid #e5e7eb;
+    border-left: 4px solid var(--color-accent);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.position-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow);
+}
+
+.position-card h3 {
+    margin-top: 0;
+    color: var(--color-primary);
+}
+
+.position-card p {
+    color: var(--color-muted);
+    margin-bottom: 0;
+    font-size: 0.95rem;
+}
+
+/* ===== Links ===== */
+a {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+/* ===== Rodapé ===== */
+.site-footer {
+    text-align: center;
+    padding: 1.5rem;
+    color: var(--color-muted);
+    font-size: 0.9rem;
+}
