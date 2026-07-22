@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<!-- A tag <!DOCTYPE html> diz ao navegador que este é um documento HTML5 -->
+<html lang="pt-BR">
+<!-- <html> é a tag raiz, que envolve todo o conteúdo da página. lang="pt-BR" indica o idioma do conteúdo -->
+
+<head>
+    <!-- A <head> guarda informações que não aparecem diretamente no corpo da página,
+         como configurações, título da aba e metadados -->
+
+    <meta charset="UTF-8">
+    <!-- Define a codificação de caracteres, permitindo usar acentos e caracteres especiais corretamente -->
+
+    <title>Tudo Sobre Vôlei</title>
+    <!-- O <title> define o texto que aparece na aba do navegador -->
+</head>
+
+<body>
+    <!-- O <body> contém todo o conteúdo visível da página: textos, imagens, listas, tabelas, links etc. -->
+
+    <h1>Vôlei: o Esporte da Rede</h1>
+    <!-- <h1> é o título principal da página. Existem tags de título de h1 (maior) até h6 (menor) -->
+
+    <p>
+        O vôlei é um esporte coletivo jogado por duas equipes separadas por uma rede.
+        O objetivo é fazer a bola tocar o chão da quadra adversária, sem deixar que ela
+        toque o chão do seu próprio lado. Cada equipe pode tocar na bola até três vezes
+        antes de enviá-la para o outro lado da quadra.
+    </p>
+    <!-- <p> representa um parágrafo de texto -->
+
+    <h2>Fundamentos Básicos</h2>
+    <!-- <h2> é um subtítulo, usado para organizar seções dentro da página -->
+
+    <ul>
+        <!-- <ul> cria uma lista não ordenada (com marcadores). Cada item vai dentro de <li> -->
+        <li>Saque</li>
+        <li>Recepção</li>
+        <li>Levantamento</li>
+        <li>Ataque</li>
+        <li>Bloqueio</li>
+        <li>Defesa</li>
+    </ul>
+
+    <h2>Imagem de uma Partida</h2>
+
+    <img src="https://upload.wikimedia.org/wikipedia/commons/2/28/Beach_volleyball_at_the_2012_Summer_Olympics_9.jpg"
+         alt="Jogadores disputando uma partida de vôlei"
+         width="500">
+    <!-- <img> insere uma imagem na página.
+         "src" é o endereço (URL) da imagem.
+         "alt" é o texto alternativo, exibido caso a imagem não carregue e usado por leitores de tela.
+         "width" define a largura da imagem em pixels -->
+
+    <h2>Posições dos Jogadores</h2>
+
+    <table border="1">
+        <!-- <table> cria uma tabela. O atributo border="1" desenha as bordas das células -->
+        <tr>
+            <!-- <tr> representa uma linha da tabela (table row) -->
+            <th>Posição</th>
+            <th>Função Principal</th>
+            <!-- <th> é uma célula de cabeçalho (table header), geralmente em negrito -->
+        </tr>
+        <tr>
+            <td>Levantador</td>
+            <td>Organizar o ataque da equipe</td>
+            <!-- <td> é uma célula comum de dados (table data) -->
+        </tr>
+        <tr>
+            <td>Ponteiro</td>
+            <td>Atacar pelas laterais da rede</td>
+        </tr>
+        <tr>
+            <td>Líbero</td>
+            <td>Especialista em defesa e recepção</td>
+        </tr>
+    </table>
+
+    <h2>Saiba Mais</h2>
+
+    <p>
+        Para aprender mais sobre as regras oficiais, visite o site da
+        <a href="https://www.fivb.com" target="_blank">FIVB (Federação Internacional de Vôlei)</a>.
+    </p>
+    <!-- <a> cria um link. "href" define o endereço de destino.
+         "target='_blank'" faz o link abrir em uma nova aba -->
+
+</body>
+</html>
