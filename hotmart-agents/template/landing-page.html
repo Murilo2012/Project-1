@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{PRODUCT_TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="landing-page.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-content">
+    <span class="eyebrow">{{CATEGORY_TAG}}</span>
+    <h1>{{PRODUCT_TITLE}}</h1>
+    <p class="subtitle">{{PRODUCT_SUBTITLE}}</p>
+    <a href="{{HOTMART_CHECKOUT_URL}}" onclick="return hotmartHandler(event)" class="hotmart-fb cta-button">
+      Quero Garantir Meu Acesso — {{PRICE}}
+    </a>
+    <p class="micro-trust">{{TRUST_LINE}}</p>
+  </div>
+  <div class="hero-image">
+    <img src="{{COVER_IMAGE_URL}}" alt="Capa do ebook {{PRODUCT_TITLE}}">
+  </div>
+</header>
+
+<main>
+
+  <section class="card problem">
+    <h2>{{PROBLEM_HEADLINE}}</h2>
+    <p>{{PROBLEM_TEXT}}</p>
+  </section>
+
+  <section class="card benefits">
+    <h2>O que você vai encontrar dentro do ebook</h2>
+    <ul class="benefits-list">
+      {{BENEFITS_LIST_HTML}}
+    </ul>
+  </section>
+
+  <section class="card audience">
+    <h2>Pra quem é este ebook</h2>
+    <p>{{AUDIENCE_TEXT}}</p>
+  </section>
+
+  <section class="card author">
+    <img src="{{PROFILE_IMAGE_URL}}" alt="{{AUTHOR_NAME}}" class="author-photo">
+    <div>
+      <h3>{{AUTHOR_NAME}}</h3>
+      <p>{{AUTHOR_BIO}}</p>
+    </div>
+  </section>
+
+  <!--
+    TESTIMONIALS: nunca preencher com depoimentos, nomes ou resultados
+    inventados. Deixar esta seção oculta/vazia até existirem avaliações
+    reais de compradores para inserir aqui.
+  -->
+  <!-- <section class="card testimonials"> ... </section> -->
+
+  <section class="card faq">
+    <h2>Perguntas frequentes</h2>
+    {{FAQ_HTML}}
+  </section>
+
+  <section class="disclaimer">
+    <p>{{DISCLAIMER_TEXT}}</p>
+  </section>
+
+  <section class="final-cta">
+    <h2>{{FINAL_CTA_HEADLINE}}</h2>
+    <a href="{{HOTMART_CHECKOUT_URL}}" onclick="return hotmartHandler(event)" class="hotmart-fb cta-button">
+      Quero Garantir Meu Acesso — {{PRICE}}
+    </a>
+  </section>
+
+</main>
+
+<footer>
+  <p>&copy; {{YEAR}} {{AUTHOR_NAME}}. Todos os direitos reservados.</p>
+  <p class="affiliate-note">Afiliados: {{AFFILIATE_INFO}}</p>
+</footer>
+
+<link rel="stylesheet" href="https://static.hotmart.com/css/hotmart-fb.min.css">
+<script src="https://static.hotmart.com/checkout/widget.min.js"></script>
+<!--
+  {{HOTMART_CHECKOUT_URL}} é um placeholder. Depois de cadastrar o produto
+  na Hotmart, substitua por o link/código de checkout real (ou pelo snippet
+  de embed exato que a Hotmart fornecer no painel do produtor) antes de publicar.
+-->
+
+</body>
+</html>
