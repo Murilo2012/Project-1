@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1500" viewBox="0 0 1000 1500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#171a21"/>
+      <stop offset="100%" stop-color="#0f1115"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1000" height="1500" fill="url(#bg)"/>
+
+  <circle cx="410" cy="400" r="110" fill="none" stroke="#ff5722" stroke-width="4" opacity="0.7"/>
+  <circle cx="590" cy="400" r="110" fill="none" stroke="#f2f3f5" stroke-width="3" opacity="0.35"/>
+  <line x1="480" y1="400" x2="520" y2="400" stroke="#ff5722" stroke-width="3" opacity="0.6"/>
+
+  <text x="500" y="760" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="28" fill="#ff8a50" letter-spacing="6">RELACIONAMENTOS</text>
+
+  <text x="500" y="850" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="58" fill="#f2f3f5">Discussão Não</text>
+  <text x="500" y="925" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="58" fill="#f2f3f5">Precisa Virar Briga</text>
+
+  <line x1="330" y1="985" x2="670" y2="985" stroke="#ff5722" stroke-width="3"/>
+
+  <text x="500" y="1050" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="27" fill="#a3a9b7">Comunicação não violenta para</text>
+  <text x="500" y="1090" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="27" fill="#a3a9b7">o dia a dia do casal</text>
+
+  <text x="500" y="1400" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="24" letter-spacing="4" fill="#6b7180">EBOOK</text>
+</svg>
