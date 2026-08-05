@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1500" viewBox="0 0 1000 1500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#171a21"/>
+      <stop offset="100%" stop-color="#0f1115"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff5722"/>
+      <stop offset="100%" stop-color="#ff8a50"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1000" height="1500" fill="url(#bg)"/>
+
+  <circle cx="500" cy="430" r="230" fill="none" stroke="url(#ring)" stroke-width="4" opacity="0.55"/>
+  <circle cx="500" cy="430" r="170" fill="none" stroke="#ff5722" stroke-width="2" opacity="0.35"/>
+  <path d="M 500 300 A 130 130 0 0 1 500 560" fill="none" stroke="#ff5722" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="500" cy="430" r="10" fill="#ff5722"/>
+
+  <text x="500" y="760" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="30" fill="#ff8a50" letter-spacing="6">FINANÇAS &amp; COMPORTAMENTO</text>
+
+  <text x="500" y="860" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="76" fill="#f2f3f5">Para Onde Foi</text>
+  <text x="500" y="950" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="76" fill="#f2f3f5">Meu Dinheiro?</text>
+
+  <line x1="360" y1="1010" x2="640" y2="1010" stroke="#ff5722" stroke-width="3"/>
+
+  <text x="500" y="1075" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="30" fill="#a3a9b7">Organize suas finanças sem culpa</text>
+  <text x="500" y="1120" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="30" fill="#a3a9b7">e sem planilha complicada</text>
+
+  <text x="500" y="1400" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="24" letter-spacing="4" fill="#6b7180">EBOOK</text>
+</svg>
