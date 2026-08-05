@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1500" viewBox="0 0 1000 1500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#171a21"/>
+      <stop offset="100%" stop-color="#0f1115"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1000" height="1500" fill="url(#bg)"/>
+
+  <circle cx="500" cy="420" r="210" fill="none" stroke="#2a2e38" stroke-width="26"/>
+  <path d="M 500 210 A 210 210 0 0 1 682 525" fill="none" stroke="#ff5722" stroke-width="26" stroke-linecap="round"/>
+  <circle cx="500" cy="420" r="120" fill="none" stroke="#ff5722" stroke-width="2" opacity="0.4"/>
+  <circle cx="500" cy="420" r="10" fill="#ff5722"/>
+  <line x1="500" y1="420" x2="500" y2="330" stroke="#f2f3f5" stroke-width="6" stroke-linecap="round"/>
+  <line x1="500" y1="420" x2="565" y2="420" stroke="#f2f3f5" stroke-width="6" stroke-linecap="round"/>
+
+  <text x="500" y="760" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="30" fill="#ff8a50" letter-spacing="6">FOCO &amp; PRODUTIVIDADE</text>
+
+  <text x="500" y="855" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="66" fill="#f2f3f5">Foco Não é</text>
+  <text x="500" y="935" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="66" fill="#f2f3f5">Força de Vontade</text>
+
+  <line x1="330" y1="990" x2="670" y2="990" stroke="#ff5722" stroke-width="3"/>
+
+  <text x="500" y="1055" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="28" fill="#a3a9b7">Como treinar concentração profunda</text>
+  <text x="500" y="1095" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="28" fill="#a3a9b7">na era das notificações</text>
+
+  <text x="500" y="1400" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="24" letter-spacing="4" fill="#6b7180">EBOOK</text>
+</svg>
