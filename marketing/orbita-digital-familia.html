@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1400px; }
+  html { background: #0f1115; }
+  body {
+    background: linear-gradient(180deg, #171a21 0%, #0f1115 100%);
+    color: #f2f3f5;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 90px 80px;
+  }
+  .eyebrow {
+    font-size: 22px;
+    letter-spacing: 6px;
+    color: #ff8a50;
+    font-weight: 600;
+  }
+  .orbit {
+    position: relative;
+    width: 90px; height: 90px;
+    margin: 30px 0 20px;
+  }
+  .ring { position: absolute; border-radius: 50%; border: 3px solid #ff5722; opacity: 0.55; }
+  .r1 { width: 90px; height: 90px; top: 0; left: 0; }
+  .r2 { width: 60px; height: 60px; top: 15px; left: 15px; opacity: 0.85; }
+  .dot { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #ff5722; top: -7px; left: 38px; }
+
+  h1 {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: 700;
+    font-size: 88px;
+    line-height: 1.02;
+    letter-spacing: -1px;
+  }
+  .tagline {
+    margin-top: 26px;
+    font-size: 32px;
+    color: #a3a9b7;
+    max-width: 800px;
+    line-height: 1.4;
+  }
+
+  .divider { height: 1px; background: rgba(242,243,245,0.15); margin: 60px 0 50px; }
+
+  .section-label {
+    font-size: 22px;
+    letter-spacing: 3px;
+    color: #6b7180;
+    text-transform: uppercase;
+    margin-bottom: 30px;
+  }
+
+  .products { display: flex; flex-direction: column; gap: 26px; }
+  .product {
+    display: flex;
+    align-items: flex-start;
+    gap: 22px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 28px 32px;
+  }
+  .product .num {
+    font-family: Georgia, serif;
+    font-size: 34px;
+    color: #ff5722;
+    font-weight: 700;
+    min-width: 50px;
+  }
+  .product .title { font-size: 30px; font-weight: 700; margin-bottom: 6px; }
+  .product .desc { font-size: 24px; color: #a3a9b7; line-height: 1.4; }
+
+  .footer {
+    margin-top: auto;
+    padding-top: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .cta {
+    font-size: 26px;
+    color: #f2f3f5;
+    font-weight: 600;
+  }
+  .cta span { color: #ff8a50; }
+  .brand-mark {
+    font-family: Georgia, serif;
+    font-size: 24px;
+    color: #6b7180;
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+  <span class="eyebrow">NOVO PROJETO DA FAMÍLIA</span>
+
+  <div class="orbit">
+    <div class="ring r1"></div>
+    <div class="ring r2"></div>
+    <div class="dot"></div>
+  </div>
+
+  <h1>Órbita Digital</h1>
+  <p class="tagline">Conteúdo digital prático que ajuda gente de verdade a resolver problema de verdade — finanças, foco e relacionamento, sem enrolação.</p>
+
+  <div class="divider"></div>
+
+  <div class="section-label">O que já vendemos</div>
+  <div class="products">
+    <div class="product">
+      <div class="num">01</div>
+      <div>
+        <div class="title">Para Onde Foi Meu Dinheiro?</div>
+        <div class="desc">Guia prático de organização financeira sem culpa e sem planilha complicada.</div>
+      </div>
+    </div>
+    <div class="product">
+      <div class="num">02</div>
+      <div>
+        <div class="title">Foco Não é Força de Vontade</div>
+        <div class="desc">Como treinar concentração profunda na era das notificações.</div>
+      </div>
+    </div>
+    <div class="product">
+      <div class="num">03</div>
+      <div>
+        <div class="title">Discussão Não Precisa Virar Briga</div>
+        <div class="desc">Comunicação não violenta pro dia a dia do casal.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="cta">Segue a gente e ajuda a <span>divulgar</span> 🙏</div>
+    <div class="brand-mark">ÓRBITA DIGITAL</div>
+  </div>
+</body>
+</html>
