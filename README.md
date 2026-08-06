@@ -66,6 +66,62 @@ disco está crítico, ele investiga o que está ocupando espaço antes de falar.
 Ajuste tudo em `awareness` no `config.json`. Pra desligar:
 `"awareness": { "enabled": false }`.
 
+## Dois cérebros, mesmo corpo
+
+O consenso de 2026 para assistente de voz local é **faster-whisper + Piper +
+Ollama**. As duas primeiras peças o APEX já usava. A terceira agora existe: o
+cérebro é trocável numa linha do `config.json`.
+
+```json
+"brain": "claude"    // API da Anthropic — mais esperto, custa por comando
+"brain": "ollama"    // modelo local — de graça, offline, mais burro
+```
+
+Ou sem editar nada: `.\rodar.bat --local`.
+
+| | Claude Opus 5 | Ollama local |
+|---|---|---|
+| Custo | por comando | zero |
+| Internet | obrigatória | nenhuma |
+| Seus dados | vão pra API | não saem da máquina |
+| Escolher a ferramenta certa | acerta quase sempre | erra bastante |
+| Ver a tela | sim | só com modelo de visão |
+| Hardware | qualquer um | 8 GB de RAM no mínimo, GPU ajuda muito |
+
+### Rodando local
+
+```powershell
+winget install Ollama.Ollama
+ollama pull qwen3:8b
+.\rodar.bat --testar-cerebro --local
+```
+
+Qwen3 é a família com melhor tool calling entre os que rodam em casa. Escolha
+pelo hardware: `qwen3:4b-instruct` com 8 GB, `qwen3:8b` no meio termo,
+`qwen3:30b` se você tem 24 GB de VRAM.
+
+Pra ele enxergar a tela, adicione um modelo de visão:
+
+```powershell
+ollama pull qwen2.5vl:7b
+```
+
+e preencha `ollama.vision_model` no config. **Sem isso, `look_at_screen` é
+removida da lista** em vez de falhar no meio de uma tarefa.
+
+### Três coisas que mudam no modo local
+
+**Ele recebe menos ferramentas.** 28 schemas degradam a escolha de um modelo de
+8B. Em modo local ele vê 15 por padrão — as que importam. Ajuste em
+`ollama.tools`.
+
+**O prompt fica mais mandão.** É o inverso do que vale pro Opus 5, onde
+instrução muito prescritiva atrapalha. Modelo pequeno precisa de regra dura.
+
+**A saída é limpa antes de virar voz.** Modelo local vaza `<think>`, markdown e
+bloco de código mesmo mandado não vazar. Blocos de código são removidos
+inteiros — ler código em voz alta é pior que não dizer nada.
+
 ## Privacidade, sem enrolação
 
 Você vai ver por aí a frase *"seu áudio nunca sai da máquina"*. É verdade — e é

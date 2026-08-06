@@ -1,9 +1,11 @@
 """APEX — ponto de entrada.
 
-    python -m apex                  roda o daemon de voz + HUD
-    python -m apex --texto          modo texto (sem microfone), pra depurar
-    python -m apex --sem-hud        sem HUD, log corrido no terminal
-    python -m apex --testar-audio   calibra e mostra níveis, pra ajustar o mic
+    python -m apex                    roda o daemon de voz + HUD
+    python -m apex --texto            modo texto (sem microfone), pra depurar
+    python -m apex --sem-hud          sem HUD, log corrido no terminal
+    python -m apex --testar-audio     calibra e mostra níveis, pra ajustar o mic
+    python -m apex --testar-cerebro   confere se o cérebro responde
+    python -m apex --local            força o cérebro local (Ollama)
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ from apex import config as config_module
 from apex import persona
 from apex.audio.stt import Transcriber, find_wake_word
 from apex.awareness import Awareness
-from apex.brain import Brain
+from apex.brain import make_brain
 from apex.hud import Hud
 from apex.safety import interpret_confirmation
 from apex.scheduler import Scheduler
@@ -60,7 +62,7 @@ class Apex:
         if not use_hud:
             self.hud._enabled = False  # noqa: SLF001 - flag interna, é o dono aqui
 
-        self.brain = Brain(
+        self.brain = make_brain(
             cfg,
             self.vault,
             on_status=lambda msg: self.hud.log(msg),
@@ -271,7 +273,7 @@ def run_text_mode(cfg) -> None:
     """Modo texto: mesmo cérebro, mesmas ferramentas, sem microfone.
     É como se depura o comportamento sem brigar com o áudio."""
     vault = Vault(cfg.vault_path)
-    brain = Brain(
+    brain = make_brain(
         cfg,
         vault,
         on_status=lambda msg: print(f"  \033[38;5;244m· {msg}\033[0m"),
@@ -318,11 +320,42 @@ def run_audio_test(cfg) -> None:
         print("\n")
 
 
+def run_brain_test(cfg) -> int:
+    """Confere se o cérebro configurado responde, antes de brigar com o áudio."""
+    kind = str(cfg.get("brain", "claude")).lower()
+    print(f"Cérebro configurado: {kind}")
+
+    if kind in ("ollama", "local"):
+        from apex.ollama_brain import check_server  # noqa: PLC0415
+
+        host = cfg.get("ollama.host", "http://localhost:11434")
+        model = cfg.get("ollama.model", "qwen3:8b")
+        ok, message = check_server(host, model)
+        print(("  " if ok else "  ✗ ") + message)
+        if not ok:
+            return 1
+    elif not cfg.has_api_key:
+        print(f"  ✗ Sem chave da API. Preencha 'anthropic_api_key' em {cfg.path}.")
+        return 1
+    else:
+        print(f"  Modelo: {cfg.get('model')} · effort {cfg.get('effort')}")
+
+    print("\nMandando uma pergunta de teste...")
+    vault = Vault(cfg.vault_path)
+    brain = make_brain(cfg, vault, on_status=lambda m: print(f"  · {m}"))
+    turn = brain.ask("Em uma frase curta: você está funcionando?")
+    print(f"\n  {cfg.name}: {turn.text}")
+    print(f"  ({turn.elapsed:.1f}s, ferramentas usadas: {turn.tool_calls or 'nenhuma'})")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="apex", description="APEX — copiloto de voz")
     parser.add_argument("--texto", action="store_true", help="modo texto, sem microfone")
     parser.add_argument("--sem-hud", action="store_true", help="desliga o HUD")
     parser.add_argument("--testar-audio", action="store_true", help="calibra o microfone")
+    parser.add_argument("--testar-cerebro", action="store_true", help="testa o cérebro configurado")
+    parser.add_argument("--local", action="store_true", help="força o cérebro local (Ollama)")
     parser.add_argument("--config", default=None, help="caminho do config.json")
     args = parser.parse_args()
 
@@ -332,13 +365,21 @@ def main() -> int:
         print(f"Erro de configuração: {exc}")
         return 1
 
+    if args.local:
+        cfg._data["brain"] = "ollama"  # noqa: SLF001 - override de linha de comando
+
     if args.testar_audio:
         run_audio_test(cfg)
         return 0
 
-    if not cfg.has_api_key:
+    if args.testar_cerebro:
+        return run_brain_test(cfg)
+
+    usa_claude = str(cfg.get("brain", "claude")).lower() in ("claude", "anthropic")
+    if usa_claude and not cfg.has_api_key:
         print(persona.NO_API_KEY)
-        print(f"Coloque a chave em {cfg.path} no campo 'anthropic_api_key'.")
+        print(f"Coloque a chave em {cfg.path} no campo 'anthropic_api_key',")
+        print('ou rode com cérebro local: python -m apex --local')
         return 1
 
     if args.texto:

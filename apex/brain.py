@@ -260,8 +260,30 @@ class Brain:
                 self.last_usage[field] = self.last_usage.get(field, 0) + value
 
 
+def make_brain(config, vault, on_status=None, on_confirm=None):
+    """Escolhe o cérebro conforme a config. Os dois expõem a mesma interface,
+    então nada mais no sistema precisa saber qual está rodando.
+
+        "brain": "claude"   API da Anthropic — mais esperto, custa por comando
+        "brain": "ollama"   modelo local — de graça, offline, e mais burro
+    """
+    kind = str(config.get("brain", "claude")).lower()
+
+    if kind in ("ollama", "local"):
+        # Import tardio: ollama_brain importa Turn daqui, e o import no topo
+        # fecharia um ciclo.
+        from apex.ollama_brain import OllamaBrain  # noqa: PLC0415
+
+        return OllamaBrain(config, vault, on_status=on_status, on_confirm=on_confirm)
+
+    if kind not in ("claude", "anthropic"):
+        raise ValueError(f"cérebro desconhecido: '{kind}'. Use 'claude' ou 'ollama'.")
+
+    return Brain(config, vault, on_status=on_status, on_confirm=on_confirm)
+
+
 def one_shot(config, vault, prompt: str) -> str:
     """Uma pergunta, uma resposta, sem gate interativo. Usado pelo agendador —
     ninguém está lá pra confirmar nada, então ações destrutivas são negadas."""
-    brain = Brain(config, vault, on_confirm=lambda _reason: False)
+    brain = make_brain(config, vault, on_confirm=lambda _reason: False)
     return brain.ask(prompt).text
