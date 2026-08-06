@@ -92,6 +92,24 @@
     ]
   },
 
+  "awareness": {
+    "enabled": true,
+    "check_interval_seconds": 30,
+
+    "max_interrupts_per_hour": 4,
+    "quiet_hours_start": 23,
+    "quiet_hours_end": 8,
+    "respect_fullscreen": true,
+
+    "battery_low": 20,
+    "battery_critical": 10,
+    "disk_free_gb": 10,
+    "cpu_percent": 92,
+    "cpu_sustained_seconds": 180,
+    "focus_streak_minutes": 90,
+    "away_minutes": 45
+  },
+
   "wol": {
     "enabled": false,
     "mac": "",

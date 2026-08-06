@@ -6,9 +6,11 @@ Quatro camadas:
   voz       STT e TTS locais (apex/audio/)
   rosto     HUD de terminal (apex/hud.py)
 
-Mais duas que o desenho original não tinha:
-  controle  shell, programas, janelas, teclado, mouse e visão (apex/tools/)
-  gatilho   palmas e agendador, pra ele agir sem ser chamado
+Mais três que o desenho original não tinha:
+  controle    shell, programas, janelas, teclado, mouse e visão (apex/tools/)
+  gatilho     palmas e agendador, pra ele agir sem ser chamado
+  consciência ele fala primeiro (apex/awareness.py) — é o que separa um
+              assistente que responde de um que acompanha
 """
 
 __version__ = "0.1.0"

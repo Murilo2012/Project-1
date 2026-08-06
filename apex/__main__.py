@@ -16,6 +16,7 @@ import time
 from apex import config as config_module
 from apex import persona
 from apex.audio.stt import Transcriber, find_wake_word
+from apex.awareness import Awareness
 from apex.brain import Brain
 from apex.hud import Hud
 from apex.safety import interpret_confirmation
@@ -66,6 +67,16 @@ class Apex:
             on_confirm=self._confirm_by_voice,
         )
 
+        # A camada que faz ele falar primeiro. É a diferença entre um assistente
+        # que responde e um que acompanha.
+        self.awareness = Awareness(
+            cfg.get("awareness", {}),
+            speak=self._speak_unprompted,
+            think=self._think_unprompted,
+            on_status=lambda msg: self.hud.log(msg),
+            is_busy=self._is_busy,
+        )
+
         # A conversa fica aberta por um tempo depois da primeira interação, pra
         # não ter que repetir o nome a cada frase.
         self.window_until = 0.0
@@ -109,6 +120,29 @@ class Apex:
         self.hud.log("confirmação expirou — negando por segurança")
         self.speak(persona.TIMEOUT)
         return False
+
+    # -- proatividade -------------------------------------------------------
+
+    def _is_busy(self) -> bool:
+        """Não interrompe quem já está falando com ele."""
+        return self.hud.state != "idle" or time.monotonic() < self.window_until
+
+    def _speak_unprompted(self, text: str) -> None:
+        """Fala sem ter sido chamado. Abre a janela de conversa depois, porque
+        se ele te cutucou, você provavelmente vai responder."""
+        self.speak(text)
+        self.vault.append_daily_log(f"[proativo] {text}")
+        self.window_until = time.monotonic() + self.conversation_timeout
+        self.hud.set_state("listening")
+
+    def _think_unprompted(self, prompt: str) -> str:
+        """Deixa o modelo compor a interrupção. Só usado quando o sensor pede —
+        a maioria das interrupções usa frase pronta e não custa nada."""
+        with self._brain_lock:
+            self.brain.reset()
+            turn = self.brain.ask(prompt)
+            self.brain.reset()
+        return turn.text
 
     def _run_job(self, job) -> None:
         """Executa um job agendado. Roda na thread do agendador."""
@@ -158,6 +192,7 @@ class Apex:
         self.hud.noise_floor = self.mic.noise_floor
         self.hud.start()
         self.scheduler.start()
+        self.awareness.start()
         self.hud.log(f"piso de ruído em {self.mic.noise_floor:.0f} dB")
         self.hud.log(f"diga “{self.wake_words[0]}” ou bata duas palmas")
         self.hud.set_state("idle")
@@ -225,6 +260,7 @@ class Apex:
 
     def shutdown(self) -> None:
         self._running = False
+        self.awareness.stop()
         self.scheduler.stop()
         self.hud.stop()
         self.mic.stop()

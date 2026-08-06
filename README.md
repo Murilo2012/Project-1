@@ -26,10 +26,45 @@ duas foram acrescentadas porque sem elas ele não faz o que promete.
 | **Rosto** | `apex/hud.py` | HUD de terminal: estado, vitais, vault, agenda, atividade |
 | **Controle** ⁺ | `apex/tools/` | Shell, programas, janelas, teclado, mouse e **visão de tela** |
 | **Gatilho** ⁺ | `apex/scheduler.py`, `hardware/` | Palmas, agendador, e Wake-on-LAN por ESP32 |
+| **Consciência** ⁺ | `apex/awareness.py` | **Ele fala primeiro.** Observa e decide quando te interromper |
 
-⁺ As duas que faltavam. Um assistente que só lê e escreve markdown é um bloco
-de notas caro; e um HUD que mostra "09:30 — briefing" é decoração se nada
-dispara aquilo.
+⁺ As três que faltavam. Um assistente que só lê e escreve markdown é um bloco
+de notas caro; um HUD que mostra "09:30 — briefing" é decoração se nada dispara
+aquilo; e um assistente que só responde é a Alexa.
+
+## Por que ele fala primeiro
+
+Repara nas falas do JARVIS no filme: quase nenhuma responde a uma pergunta.
+*"Sir, the suit's power is at 15%."* Ele observa e decide interromper. **Essa é
+a diferença de sensação** — o resto é polimento.
+
+`apex/awareness.py` roda sensores baratos em laço e emite uma observação quando
+algo muda:
+
+| Sensor | Fala quando |
+|---|---|
+| Bateria | Cruza 20% e 10% — **na travessia**, não enquanto estiver abaixo |
+| Disco | Sobra menos que o limite. Abaixo da metade dele, vira urgente |
+| CPU | Alta **e sustentada** por minutos. Pico de dois segundos não é notícia |
+| Foco | Você está há 90 minutos grudado na mesma janela |
+| Retorno | Você sumiu por 45 minutos e voltou |
+
+### As duas regras que impedem ele de virar praga
+
+**1. Interromper custa atenção, não token.** Um assistente que fala a cada
+cinco minutos é mutado no primeiro dia. Por isso: no máximo 4 interrupções por
+hora, horário de silêncio (23h–8h), cooldown por assunto, uma interrupção por
+ciclo, e **detecção de tela cheia** — jogo, chamada de vídeo e apresentação
+nunca são interrompidos.
+
+Só a prioridade alta (bateria acabando, disco quase cheio) fura tudo isso.
+
+**2. A maioria das interrupções não custa chamada de API.** "Bateria em 15 por
+cento" é frase pronta. Só sobe pro modelo o que exige julgamento — quando o
+disco está crítico, ele investiga o que está ocupando espaço antes de falar.
+
+Ajuste tudo em `awareness` no `config.json`. Pra desligar:
+`"awareness": { "enabled": false }`.
 
 ## Privacidade, sem enrolação
 
@@ -233,6 +268,9 @@ Tudo em `config.json` (criado do `config.example.json` na primeira execução).
 | `audio.silence_threshold_db` | `-38` | Ajustado sozinho na calibração |
 | `safety.mode` | `confirm` | `permissive` · `confirm` · `paranoid` |
 | `hud.accent` | `red` | `red` · `green` · `cyan` · `violet` |
+| `awareness.enabled` | `true` | Se ele pode falar primeiro |
+| `awareness.max_interrupts_per_hour` | `4` | Teto de interrupções |
+| `awareness.quiet_hours_start` / `_end` | `23` / `8` | Janela de silêncio |
 
 O `config.json` está no `.gitignore` — é onde mora sua chave de API.
 
