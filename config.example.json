@@ -1,13 +1,10 @@
 {
   "name": "APEX",
-
   "brain": "claude",
-
   "anthropic_api_key": "",
   "model": "claude-opus-5",
   "effort": "low",
   "max_tokens": 8000,
-
   "ollama": {
     "host": "http://localhost:11434",
     "model": "qwen3:8b",
@@ -18,13 +15,17 @@
     "think": false,
     "tools": null
   },
-
   "wake": {
-    "words": ["apex", "ápex", "apeix", "apes", "ápice"],
+    "words": [
+      "apex",
+      "ápex",
+      "apeix",
+      "apes",
+      "ápice"
+    ],
     "conversation_timeout": 30,
     "require_name_every_time": false
   },
-
   "audio": {
     "input_device": null,
     "output_device": null,
@@ -37,7 +38,6 @@
     "calibration_seconds": 2.0,
     "pre_roll_seconds": 0.4
   },
-
   "stt": {
     "model": "small",
     "device": "auto",
@@ -45,7 +45,6 @@
     "language": "pt",
     "wake_model": "tiny"
   },
-
   "tts": {
     "engine": "piper",
     "piper_voice": "pt_BR-faber-medium",
@@ -54,7 +53,6 @@
     "rate": "+12%",
     "pitch": "-2Hz"
   },
-
   "clap": {
     "enabled": true,
     "count": 2,
@@ -63,7 +61,6 @@
     "threshold_db_above_noise": 22.0,
     "min_seconds_between_triggers": 2.0
   },
-
   "safety": {
     "mode": "confirm",
     "allow_shell": true,
@@ -77,42 +74,51 @@
       "Remove-Item[^\\n]*['\\\"]?[Cc]:\\\\{1,2}['\\\"]?\\s*(-Recurse|$)"
     ]
   },
-
   "vault": {
     "path": "~/APEX/vault",
     "max_search_results": 12,
     "max_note_chars": 8000
   },
-
   "scheduler": {
     "enabled": true,
     "jobs": [
       {
         "name": "briefing-manha",
         "at": "08:00",
-        "days": ["mon", "tue", "wed", "thu", "fri"],
+        "days": [
+          "mon",
+          "tue",
+          "wed",
+          "thu",
+          "fri"
+        ],
         "prompt": "Rode a skill 'briefing'. Monte o briefing da manhã e salve em outputs/. Depois me diga em voz alta o resumo em no máximo 4 frases.",
         "speak": true
       },
       {
         "name": "fechamento-noite",
         "at": "21:00",
-        "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+        "days": [
+          "mon",
+          "tue",
+          "wed",
+          "thu",
+          "fri",
+          "sat",
+          "sun"
+        ],
         "prompt": "Rode a skill 'revisao'. Feche o dia: leia o que foi capturado hoje em raw/, destile o que importa pra wiki/ e escreva o log do dia. Me diga em duas frases o que foi feito.",
         "speak": true
       }
     ]
   },
-
   "awareness": {
     "enabled": true,
     "check_interval_seconds": 30,
-
     "max_interrupts_per_hour": 4,
     "quiet_hours_start": 23,
     "quiet_hours_end": 8,
     "respect_fullscreen": true,
-
     "battery_low": 20,
     "battery_critical": 10,
     "disk_free_gb": 10,
@@ -121,20 +127,22 @@
     "focus_streak_minutes": 90,
     "away_minutes": 45
   },
-
   "wol": {
     "enabled": false,
     "mac": "",
     "broadcast": "255.255.255.255",
     "port": 9
   },
-
   "hud": {
     "enabled": true,
     "refresh_seconds": 2,
     "accent": "red"
   },
-
+  "web": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 8765
+  },
   "workspace": "~/APEX",
   "log_conversations": true
 }

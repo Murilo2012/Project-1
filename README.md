@@ -66,6 +66,39 @@ disco está crítico, ele investiga o que está ocupando espaço antes de falar.
 Ajuste tudo em `awareness` no `config.json`. Pra desligar:
 `"awareness": { "enabled": false }`.
 
+## O console no navegador
+
+Rodando o APEX, ele sobe um servidor local e imprime o endereço:
+
+```
+Console: http://127.0.0.1:8765/?k=<token>
+```
+
+Abre no navegador e você tem o rosto: orbe reagindo à sua voz, telemetria,
+vault, agenda, tokens gastos, e um campo pra digitar comando.
+
+**A analogia que rege isso:** o console está para o APEX assim como o Claude
+normal está para o Claude Code. Um conversa e mostra; o outro tem mãos.
+
+**Um microfone só, e é do Python.** O console *não* abre o microfone — ele
+desenha o que o Python está ouvindo. O Python já tem Whisper local, wake word e
+detector de palmas; dois processos disputando o mesmo aparelho é bug garantido.
+
+### Por que tem token na URL
+
+Escutar só em `127.0.0.1` impede acesso de fora da máquina, mas **não** impede
+que um site qualquer aberto no seu navegador mande um POST pra localhost — CORS
+bloqueia a *leitura* da resposta, não o *envio* do pedido. Sem trava, um site
+malicioso mandaria comandos pro seu APEX.
+
+Duas travas, as duas necessárias:
+
+1. **Token** gerado a cada inicialização, exigido em toda chamada.
+2. **`Content-Type: application/json` obrigatório** no POST, o que força o
+   navegador a fazer preflight — e o preflight nós recusamos.
+
+Pra desligar o console: `"web": { "enabled": false }`.
+
 ## Dois cérebros, mesmo corpo
 
 O consenso de 2026 para assistente de voz local é **faster-whisper + Piper +

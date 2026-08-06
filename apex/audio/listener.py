@@ -136,6 +136,9 @@ class Microphone:
         self.clap = ClapDetector(clap_cfg)
 
         self.noise_floor = -60.0
+        # Último nível medido. O console web desenha a partir daqui — é o
+        # Python que segura o microfone, então é ele quem tem o número.
+        self.last_level = -120.0
         self._queue: queue.Queue[np.ndarray] = queue.Queue()
         self._stream: sd.InputStream | None = None
         self._paused = threading.Event()
@@ -232,6 +235,7 @@ class Microphone:
 
             now = time.monotonic()
             level = dbfs(block)
+            self.last_level = level
             clapped = self.clap.feed(level, now)
             self._pre_roll.append(block)
             yield block, level, clapped

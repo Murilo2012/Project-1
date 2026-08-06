@@ -23,6 +23,7 @@ from apex.brain import make_brain
 from apex.hud import Hud
 from apex.safety import interpret_confirmation
 from apex.scheduler import Scheduler
+from apex.server import Bridge, WebFace
 from apex.vault import Vault
 
 
@@ -61,6 +62,16 @@ class Apex:
         self.hud = Hud(self.name, cfg, self.vault, self.scheduler)
         if not use_hud:
             self.hud._enabled = False  # noqa: SLF001 - flag interna, é o dono aqui
+
+        # O rosto no navegador. O Python continua dono do microfone; o console
+        # só mostra o que ele ouve e aceita comando digitado.
+        self.bridge = Bridge(self.name, self.vault, self.scheduler)
+        self.bridge.on_ask = self.ask_text
+        self.web = WebFace(
+            self.bridge,
+            host=cfg.get("web.host", "127.0.0.1"),
+            port=int(cfg.get("web.port", 8765)),
+        ) if cfg.get("web.enabled", True) else None
 
         self.brain = make_brain(
             cfg,
@@ -164,25 +175,44 @@ class Apex:
         if not text:
             return
         self.hud.set_said(text)
+        self.bridge.push("apex", text)
+        self.bridge.set_phase("speaking")
         self.speaker.say(text)
+        self.bridge.set_phase("idle")
 
     def handle_command(self, text: str) -> None:
+        self.ask_text(text)
+
+    def ask_text(self, text: str) -> str:
+        """Um comando, uma resposta falada. Serve tanto pro laço de voz quanto
+        pro console web — os dois passam por aqui, e pelo mesmo cadeado."""
         text = text.strip()
         if not text:
             self.speak(persona.ACK[0])
-            return
+            return persona.ACK[0]
 
         self.hud.set_heard(text)
+        self.bridge.push("you", text)
         self.hud.set_state("thinking")
+        self.bridge.set_phase("thinking")
+        self.bridge.bump("cmd")
 
+        started = time.monotonic()
         with self._brain_lock:
             turn = self.brain.ask(text)
+        self.bridge.last_latency = int((time.monotonic() - started) * 1000)
 
         self.hud.tokens = self.brain.last_usage
+        self.bridge.tokens = self.brain.last_usage
         self.vault.append_daily_log(f"“{text}” → {turn.text[:160]}")
-        self.speak(turn.text or "Feito.")
+
+        reply = turn.text or "Feito."
+        self.speak(reply)
         self.window_until = time.monotonic() + self.conversation_timeout
+        self.bridge.window_until = self.window_until
         self.hud.set_state("idle")
+        self.bridge.set_phase("idle")
+        return reply
 
     # -- laço principal -----------------------------------------------------
 
@@ -195,6 +225,16 @@ class Apex:
         self.hud.start()
         self.scheduler.start()
         self.awareness.start()
+
+        if self.web is not None:
+            try:
+                url = self.web.start()
+                self.hud.log(f"console em {url}?k={self.bridge.token}")
+                print(f"\n  Console: {url}?k={self.bridge.token}\n")
+            except OSError as exc:
+                self.hud.log(f"não subi o console web: {exc}")
+                self.web = None
+
         self.hud.log(f"piso de ruído em {self.mic.noise_floor:.0f} dB")
         self.hud.log(f"diga “{self.wake_words[0]}” ou bata duas palmas")
         self.hud.set_state("idle")
@@ -212,6 +252,9 @@ class Apex:
                 return
 
             window_open = time.monotonic() < self.window_until
+            self.bridge.set_audio(self.mic.last_level, self.mic.noise_floor,
+                                  self.mic.silence_threshold_db)
+            self.bridge.window_until = self.window_until
 
             if kind == "idle":
                 if self.hud.state == "idle" and window_open is False and self.window_until:
@@ -222,6 +265,8 @@ class Apex:
 
             if kind == "clap":
                 self.hud.log("palmas detectadas")
+                self.bridge.bump("clap")
+                self.bridge.push("sys", "Duas palmas — janela aberta.")
                 self.window_until = time.monotonic() + self.conversation_timeout
                 self.speak(persona.ACK[0])
                 self.hud.set_state("listening")
@@ -242,9 +287,11 @@ class Apex:
                 continue
 
             # Janela fechada: passa pelo modelo rápido só pra achar o nome.
+            self.bridge.bump("utt")
             rough = self.transcriber.transcribe_fast(payload)
             found, remainder = find_wake_word(rough, self.wake_words)
             if not found:
+                self.bridge.bump("ign")
                 self.hud.set_state("idle")
                 continue
 
@@ -262,6 +309,8 @@ class Apex:
 
     def shutdown(self) -> None:
         self._running = False
+        if self.web is not None:
+            self.web.stop()
         self.awareness.stop()
         self.scheduler.stop()
         self.hud.stop()
