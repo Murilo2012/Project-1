@@ -1,0 +1,317 @@
+"""APEX — ponto de entrada.
+
+    python -m apex                  roda o daemon de voz + HUD
+    python -m apex --texto          modo texto (sem microfone), pra depurar
+    python -m apex --sem-hud        sem HUD, log corrido no terminal
+    python -m apex --testar-audio   calibra e mostra níveis, pra ajustar o mic
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+import threading
+import time
+
+from apex import config as config_module
+from apex import persona
+from apex.audio.stt import Transcriber, find_wake_word
+from apex.brain import Brain
+from apex.hud import Hud
+from apex.safety import interpret_confirmation
+from apex.scheduler import Scheduler
+from apex.vault import Vault
+
+
+class Apex:
+    def __init__(self, cfg, use_hud: bool = True):
+        # Importados aqui, não no topo: o modo texto tem que rodar numa máquina
+        # sem PortAudio, e importar estes módulos exige o driver de áudio.
+        from apex.audio.listener import Microphone  # noqa: PLC0415
+        from apex.audio.tts import Speaker  # noqa: PLC0415
+
+        self.config = cfg
+        self.name = cfg.name
+        self.vault = Vault(
+            cfg.vault_path,
+            max_results=cfg.get("vault.max_search_results", 12),
+            max_note_chars=cfg.get("vault.max_note_chars", 8000),
+        )
+
+        self.wake_words = cfg.get("wake.words", ["apex"])
+        self.conversation_timeout = float(cfg.get("wake.conversation_timeout", 30))
+        self.require_name_every_time = bool(cfg.get("wake.require_name_every_time", False))
+
+        self.transcriber = Transcriber(cfg.get("stt", {}))
+        self.mic = Microphone(cfg.get("audio", {}), cfg.get("clap", {}))
+        self.speaker = Speaker(
+            cfg.get("tts", {}),
+            output_device=cfg.get("audio.output_device"),
+            on_speaking=self._on_speaking,
+        )
+
+        self.scheduler = Scheduler(
+            cfg.get("scheduler.jobs", []) if cfg.get("scheduler.enabled", True) else [],
+            runner=self._run_job,
+            on_status=lambda msg: self.hud.log(msg),
+        )
+        self.hud = Hud(self.name, cfg, self.vault, self.scheduler)
+        if not use_hud:
+            self.hud._enabled = False  # noqa: SLF001 - flag interna, é o dono aqui
+
+        self.brain = Brain(
+            cfg,
+            self.vault,
+            on_status=lambda msg: self.hud.log(msg),
+            on_confirm=self._confirm_by_voice,
+        )
+
+        # A conversa fica aberta por um tempo depois da primeira interação, pra
+        # não ter que repetir o nome a cada frase.
+        self.window_until = 0.0
+        self._brain_lock = threading.Lock()
+        self._running = True
+
+    # -- callbacks ---------------------------------------------------------
+
+    def _on_speaking(self, speaking: bool) -> None:
+        """Silencia o microfone enquanto o APEX fala, senão ele se ouve e se
+        auto-ativa num laço infinito."""
+        if speaking:
+            self.mic.pause()
+            self.hud.set_state("speaking")
+        else:
+            time.sleep(0.25)  # deixa o eco da caixa morrer antes de voltar a ouvir
+            self.mic.resume()
+
+    def _confirm_by_voice(self, reason: str) -> bool:
+        """Pergunta em voz alta e espera sim ou não. Timeout é não."""
+        self.hud.set_state("confirming")
+        self.speak(persona.CONFIRM_TEMPLATE.format(reason=reason))
+
+        deadline = time.monotonic() + self.brain.gate.confirm_timeout
+        while time.monotonic() < deadline:
+            audio = self.mic.record_utterance(timeout=max(1.0, deadline - time.monotonic()))
+            if audio is None:
+                break
+            answer = self.transcriber.transcribe(audio)
+            self.hud.set_heard(answer)
+            decision = interpret_confirmation(answer)
+            if decision is True:
+                self.hud.log("confirmado pelo usuário")
+                return True
+            if decision is False:
+                self.hud.log("negado pelo usuário")
+                self.speak(persona.CANCELLED)
+                return False
+            self.speak("Sim ou não?")
+
+        self.hud.log("confirmação expirou — negando por segurança")
+        self.speak(persona.TIMEOUT)
+        return False
+
+    def _run_job(self, job) -> None:
+        """Executa um job agendado. Roda na thread do agendador."""
+        with self._brain_lock:
+            self.hud.set_state("job")
+            self.brain.reset()
+            turn = self.brain.ask(job.prompt)
+            self.brain.reset()
+        self.vault.append_daily_log(f"[job {job.name}] {turn.text[:200]}")
+        if job.speak and turn.text:
+            self.speak(turn.text)
+        self.hud.set_state("idle")
+
+    # -- fala e escuta ------------------------------------------------------
+
+    def speak(self, text: str) -> None:
+        if not text:
+            return
+        self.hud.set_said(text)
+        self.speaker.say(text)
+
+    def handle_command(self, text: str) -> None:
+        text = text.strip()
+        if not text:
+            self.speak(persona.ACK[0])
+            return
+
+        self.hud.set_heard(text)
+        self.hud.set_state("thinking")
+
+        with self._brain_lock:
+            turn = self.brain.ask(text)
+
+        self.hud.tokens = self.brain.last_usage
+        self.vault.append_daily_log(f"“{text}” → {turn.text[:160]}")
+        self.speak(turn.text or "Feito.")
+        self.window_until = time.monotonic() + self.conversation_timeout
+        self.hud.set_state("idle")
+
+    # -- laço principal -----------------------------------------------------
+
+    def run(self) -> None:
+        print(f"[{self.name}] carregando modelos de voz...")
+        self.transcriber.preload()
+
+        self.mic.start()
+        self.hud.noise_floor = self.mic.noise_floor
+        self.hud.start()
+        self.scheduler.start()
+        self.hud.log(f"piso de ruído em {self.mic.noise_floor:.0f} dB")
+        self.hud.log(f"diga “{self.wake_words[0]}” ou bata duas palmas")
+        self.hud.set_state("idle")
+
+        try:
+            self._event_loop()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.shutdown()
+
+    def _event_loop(self) -> None:
+        for kind, payload in self.mic.events():
+            if not self._running:
+                return
+
+            window_open = time.monotonic() < self.window_until
+
+            if kind == "idle":
+                if self.hud.state == "idle" and window_open is False and self.window_until:
+                    self.window_until = 0.0
+                    self.brain.reset()
+                    self.hud.log("conversa encerrada por inatividade")
+                continue
+
+            if kind == "clap":
+                self.hud.log("palmas detectadas")
+                self.window_until = time.monotonic() + self.conversation_timeout
+                self.speak(persona.ACK[0])
+                self.hud.set_state("listening")
+                continue
+
+            if kind != "utterance" or payload is None:
+                continue
+
+            self.hud.set_state("listening")
+
+            # Janela aberta: tudo que for falado é comando, sem repetir o nome.
+            if window_open and not self.require_name_every_time:
+                text = self.transcriber.transcribe(payload)
+                if text.strip():
+                    self.handle_command(text)
+                else:
+                    self.hud.set_state("idle")
+                continue
+
+            # Janela fechada: passa pelo modelo rápido só pra achar o nome.
+            rough = self.transcriber.transcribe_fast(payload)
+            found, remainder = find_wake_word(rough, self.wake_words)
+            if not found:
+                self.hud.set_state("idle")
+                continue
+
+            self.hud.log(f"acordado por voz: “{rough[:50]}”")
+            self.window_until = time.monotonic() + self.conversation_timeout
+
+            if remainder:
+                # Reprocessa com o modelo bom: o tiny erra demais em comando.
+                full = self.transcriber.transcribe(payload)
+                _found, command = find_wake_word(full, self.wake_words)
+                self.handle_command(command or remainder)
+            else:
+                self.speak(persona.ACK[0])
+                self.hud.set_state("listening")
+
+    def shutdown(self) -> None:
+        self._running = False
+        self.scheduler.stop()
+        self.hud.stop()
+        self.mic.stop()
+        print(f"\n[{self.name}] encerrado.")
+
+
+def run_text_mode(cfg) -> None:
+    """Modo texto: mesmo cérebro, mesmas ferramentas, sem microfone.
+    É como se depura o comportamento sem brigar com o áudio."""
+    vault = Vault(cfg.vault_path)
+    brain = Brain(
+        cfg,
+        vault,
+        on_status=lambda msg: print(f"  \033[38;5;244m· {msg}\033[0m"),
+        on_confirm=lambda reason: input(f"  ⚠ Isso {reason}. Confirma? [s/N] ").lower().startswith("s"),
+    )
+    print(f"{cfg.name} em modo texto. Ctrl+C ou 'sair' encerra.\n")
+    while True:
+        try:
+            text = input("\033[38;5;196mvocê ›\033[0m ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if text.lower() in {"sair", "exit", "quit"}:
+            break
+        if not text:
+            continue
+        turn = brain.ask(text)
+        print(f"\033[38;5;208m{cfg.name.lower()} ›\033[0m {turn.text}\n")
+    print("\nencerrado.")
+
+
+def run_audio_test(cfg) -> None:
+    """Mostra níveis em tempo real, pra calibrar limiar e detector de palmas."""
+    from apex.audio.listener import Microphone  # noqa: PLC0415
+
+    mic = Microphone(cfg.get("audio", {}), cfg.get("clap", {}))
+    print("Calibrando... fique em silêncio por 2 segundos.")
+    mic.start()
+    print(f"Piso de ruído: {mic.noise_floor:.1f} dB")
+    print(f"Limiar de voz: {mic.silence_threshold_db:.1f} dB")
+    print("\nFale e bata palmas. Ctrl+C pra sair.\n")
+    try:
+        for block, level, clapped in mic.blocks():
+            if block is None:
+                continue
+            filled = max(0, min(40, int((level + 60) / 60 * 40)))
+            bar = "█" * filled + "░" * (40 - filled)
+            voice = "VOZ  " if level > mic.silence_threshold_db else "     "
+            clap = "PALMAS!" if clapped else ""
+            print(f"\r{level:>6.1f} dB {bar} {voice}{clap}   ", end="", flush=True)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        mic.stop()
+        print("\n")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="apex", description="APEX — copiloto de voz")
+    parser.add_argument("--texto", action="store_true", help="modo texto, sem microfone")
+    parser.add_argument("--sem-hud", action="store_true", help="desliga o HUD")
+    parser.add_argument("--testar-audio", action="store_true", help="calibra o microfone")
+    parser.add_argument("--config", default=None, help="caminho do config.json")
+    args = parser.parse_args()
+
+    try:
+        cfg = config_module.load(args.config)
+    except config_module.ConfigError as exc:
+        print(f"Erro de configuração: {exc}")
+        return 1
+
+    if args.testar_audio:
+        run_audio_test(cfg)
+        return 0
+
+    if not cfg.has_api_key:
+        print(persona.NO_API_KEY)
+        print(f"Coloque a chave em {cfg.path} no campo 'anthropic_api_key'.")
+        return 1
+
+    if args.texto:
+        run_text_mode(cfg)
+        return 0
+
+    Apex(cfg, use_hud=not args.sem_hud).run()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
