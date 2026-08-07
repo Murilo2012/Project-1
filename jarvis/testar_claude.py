@@ -25,14 +25,53 @@ def passo(titulo: str) -> None:
 
 # ── 1. O binário existe? ────────────────────────────────────────────────────
 
+def _procurar_instalado() -> list[Path]:
+    """Locais onde o Claude Code costuma cair quando não está no PATH.
+
+    Instalar não coloca o comando num terminal já aberto: o PATH é lido na
+    abertura. Encontrar o binário aqui distingue "não instalado" de "instalado,
+    terminal velho" — que exigem coisas bem diferentes do usuário.
+    """
+    import os
+
+    nomes = ("claude.exe", "claude.cmd", "claude.ps1", "claude")
+    pastas = [
+        Path(os.environ.get("APPDATA", "")) / "npm",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "claude",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "claude",
+        Path.home() / ".local" / "bin",
+        Path.home() / ".claude" / "local",
+        Path.home() / "AppData" / "Roaming" / "npm",
+    ]
+
+    achados = []
+    for pasta in pastas:
+        if not pasta or not pasta.is_dir():
+            continue
+        for nome in nomes:
+            caminho = pasta / nome
+            if caminho.is_file():
+                achados.append(caminho)
+    return achados
+
+
 passo("1. Comando 'claude' no PATH")
 binario = shutil.which("claude")
 if binario:
     print(f"   encontrado: {binario}")
 else:
-    print("   NÃO encontrado.")
-    print("   O agente de código vai usar o Gemini (funciona, mas erra mais).")
-    print("   Instale em https://claude.com/claude-code e reabra o terminal.")
+    print("   NÃO está no PATH deste terminal.")
+    instalado = _procurar_instalado()
+    if instalado:
+        print("   Mas ele ESTÁ instalado, aqui:")
+        for caminho in instalado:
+            print(f"      {caminho}")
+        print("   O PATH só é lido quando o terminal abre — feche esta janela,")
+        print("   abra outra e rode este teste de novo.")
+    else:
+        print("   E não achei instalação nos lugares habituais.")
+        print("   Instale em https://claude.com/claude-code e reabra o terminal.")
+    print("   Enquanto isso o agente de código usa o Gemini — funciona, erra mais.")
     falhas += 1
 
 # ── 2. Ele responde? ────────────────────────────────────────────────────────

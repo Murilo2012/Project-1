@@ -52,8 +52,15 @@ def _listar() -> list[str]:
     """Nomes de modelos que a chave pode usar para generateContent."""
     from google import genai
 
+    # O cliente precisa ficar vivo em uma variável durante toda a iteração:
+    # models.list() devolve um pager preguiçoso, e um cliente temporário é
+    # coletado antes de a paginação terminar, resultando em
+    # "Cannot send a request, as the client has been closed".
+    cliente = genai.Client(api_key=_api_key())
+    modelos = list(cliente.models.list())
+
     disponiveis = []
-    for m in genai.Client(api_key=_api_key()).models.list():
+    for m in modelos:
         acoes = set(getattr(m, "supported_actions", None) or [])
         if "generateContent" in acoes:
             disponiveis.append((m.name or "").replace("models/", ""))

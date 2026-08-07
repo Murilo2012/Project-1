@@ -39,7 +39,10 @@ def main() -> int:
 
     print("Consultando a API do Gemini...\n")
     try:
-        modelos = list(genai.Client(api_key=chave).models.list())
+        # O cliente fica numa variável de propósito: models.list() é preguiçoso
+        # e um cliente temporário é fechado no meio da paginação.
+        cliente = genai.Client(api_key=chave)
+        modelos = list(cliente.models.list())
     except Exception as e:
         print(f"A consulta falhou: {e}")
         return 1
