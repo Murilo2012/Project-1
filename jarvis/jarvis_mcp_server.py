@@ -25,7 +25,13 @@ import os
 import sys
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+# O pacote mcp renomeou FastMCP para MCPServer e mudou o caminho na versão 2.0.
+# A API usada aqui — construtor, decorador .tool(), .run() — é idêntica nas
+# duas, então aceitamos ambas em vez de amarrar o kit a uma versão do pacote.
+try:
+    from mcp.server import MCPServer as _Servidor        # mcp >= 2.0
+except ImportError:                                      # mcp 1.x
+    from mcp.server.fastmcp import FastMCP as _Servidor
 
 # ── Localizar a instalação do Mark-L ────────────────────────────────────────
 JARVIS_HOME = Path(os.environ.get("JARVIS_HOME", Path(__file__).resolve().parent))
@@ -38,7 +44,7 @@ if not (JARVIS_HOME / "actions").is_dir():
 
 sys.path.insert(0, str(JARVIS_HOME))
 
-mcp = FastMCP("jarvis")
+mcp = _Servidor("jarvis")
 
 
 def _lazy(module: str, attr: str):
