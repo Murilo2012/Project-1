@@ -32,6 +32,65 @@ duas foram acrescentadas porque sem elas ele não faz o que promete.
 de notas caro; um HUD que mostra "09:30 — briefing" é decoração se nada dispara
 aquilo; e um assistente que só responde é a Alexa.
 
+## Por que ele responde no ato
+
+O caminho ingênuo é: modelo gera a resposta inteira → sintetiza → toca. Numa
+frase de duas linhas isso dá **3 a 6 segundos de silêncio** antes do primeiro
+som. É o que faz um assistente parecer lento mesmo quando é rápido.
+
+`apex/audio/speech.py` resolve em dois andares.
+
+**1. Corte por pontuação com folga.** O texto que sai do modelo entra num buffer
+que solta pedaços faláveis assim que fecha uma frase — ou uma vírgula, se já
+houver 25 caracteres antes dela. Cortar no meio da oração deixa a prosódia
+picada; esperar só o ponto final desperdiça o tempo todo. O buffer também sabe
+que `3.5` e `Sr.` não são fim de frase.
+
+**2. Esteira de dois estágios.** Enquanto o pedaço N toca, o N+1 já está sendo
+sintetizado. Sem isso, cada pedaço paga o custo de síntese em silêncio.
+
+Medido no teste com síntese simulada: **primeiro som em 161 ms** contra 291 ms
+que a geração inteira levaria — e a diferença cresce com o tamanho da resposta.
+
+### Falar por cima dele funciona
+
+Enquanto ele fala, uma thread vigia o microfone. Fala sustentada corta o som na
+hora e limpa as duas filas. Latência do corte medida: **abaixo de 1 ms**.
+
+Três travas pra ele não se interromper ouvindo a própria voz:
+
+| Trava | Por quê |
+|---|---|
+| Limiar 28 dB acima do piso | Eco de caixa fica entre −45 e −35 dB; fala direta passa disso |
+| Exige fala **sustentada** (250 ms) | Batida de mesa e estalo não contam |
+| Carência de 350 ms no começo | O alto-falante ainda está atacando |
+
+Testei os cinco cenários: fala forte corta, silêncio não, pico isolado não, eco
+de −40 dB não, e fala durante a carência não.
+
+**Sem cancelamento de eco acústico**, caixa aberta em volume alto ainda pode dar
+falso positivo. Fone resolve. Pra desligar: `"speech": { "barge_in": false }`.
+
+## Sequência de boot
+
+Quando sobe, ele reporta o que carregou — e cada linha é um fato verificado
+naquele instante, não animação:
+
+```
+núcleo: claude-opus-5 · esforço low
+ouvidos: whisper small · local
+voz: piper · pt-BR
+ferramentas: 28 carregadas
+memória: 12 notas na wiki, 47 capturas
+gatilhos: nome "apex", duas palmas, agendador
+online
+```
+
+E fala: *"Boa noite. Sistemas online. Tô ouvindo."*
+
+É teatro, mas do tipo certo. Um assistente que abre dizendo o que carregou é um
+assistente em que você confia mais no minuto seguinte.
+
 ## Por que ele fala primeiro
 
 Repara nas falas do JARVIS no filme: quase nenhuma responde a uma pergunta.

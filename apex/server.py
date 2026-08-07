@@ -63,6 +63,7 @@ class Bridge:
         self.thresh = -38.0
         self.hist: deque[float] = deque([-120.0] * MAX_HIST, maxlen=MAX_HIST)
         self.feed: deque[dict] = deque(maxlen=MAX_FEED)
+        self._streaming = False
         self.window_until = 0.0
 
         self.counters = {"utt": 0, "cmd": 0, "ign": 0, "clap": 0, "words": 0}
@@ -77,10 +78,32 @@ class Bridge:
 
     def push(self, who: str, text: str, note: str = "") -> None:
         with self.lock:
+            self._streaming = False
             self.feed.append({
                 "who": who, "text": text, "note": note,
                 "at": datetime.now().strftime("%H:%M:%S"),
             })
+
+    def stream_chunk(self, text: str) -> None:
+        """Anexa à última fala em vez de criar mensagem nova.
+
+        A fala sai em pedaços de uma frase; cada pedaço virando um balão
+        separado no console picotaria a resposta. Aqui a frase cresce na tela
+        no mesmo ritmo em que sai do alto-falante.
+        """
+        with self.lock:
+            if self._streaming and self.feed and self.feed[-1]["who"] == "apex":
+                self.feed[-1]["text"] = (self.feed[-1]["text"] + " " + text).strip()
+                return
+            self._streaming = True
+            self.feed.append({
+                "who": "apex", "text": text, "note": "",
+                "at": datetime.now().strftime("%H:%M:%S"),
+            })
+
+    def end_stream(self) -> None:
+        with self.lock:
+            self._streaming = False
 
     def set_phase(self, phase: str) -> None:
         with self.lock:

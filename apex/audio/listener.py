@@ -188,6 +188,11 @@ class Microphone:
         self._drain()
         self._paused.clear()
 
+    def flush(self) -> None:
+        """Descarta o áudio acumulado. Usado depois que ele fala, pra jogar
+        fora o eco que o microfone captou do próprio alto-falante."""
+        self._drain()
+
     def _drain(self) -> None:
         while True:
             try:
@@ -301,6 +306,49 @@ class Microphone:
                 collected = []
                 if audio is not None and len(audio) / self.sample_rate >= self.min_speech_duration:
                     yield "utterance", audio
+
+    def watch_for_speech(
+        self,
+        stop_event: threading.Event,
+        threshold_db: float,
+        sustain: float = 0.25,
+        grace: float = 0.35,
+    ) -> bool:
+        """Vigia o microfone procurando fala sustentada. Usado pra interromper.
+
+        Roda numa thread enquanto o APEX fala, consumindo a fila de áudio que o
+        laço principal não está lendo naquele momento.
+
+        Três travas contra ele se interromper sozinho ouvindo a própria voz:
+          - limiar mais alto que o de fala normal (vem de `threshold_db`)
+          - exige fala SUSTENTADA, não um pico
+          - carência no começo, quando o alto-falante ainda está atacando
+
+        Sem cancelamento de eco acústico, alto-falante aberto e volume alto ainda
+        podem gerar falso positivo. Fone resolve; a config permite desligar.
+        """
+        started = time.monotonic()
+        loud_since: float | None = None
+
+        while not stop_event.is_set():
+            try:
+                block = self._queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
+
+            now = time.monotonic()
+            if now - started < grace:
+                continue
+
+            if dbfs(block) > threshold_db:
+                if loud_since is None:
+                    loud_since = now
+                elif now - loud_since >= sustain:
+                    return True
+            else:
+                loud_since = None
+
+        return False
 
     def record_utterance(self, timeout: float = 8.0) -> np.ndarray | None:
         """Espera alguém falar e grava até o silêncio. None se ninguém falou.

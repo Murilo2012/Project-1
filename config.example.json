@@ -53,6 +53,13 @@
     "rate": "+12%",
     "pitch": "-2Hz"
   },
+  "speech": {
+    "streaming": true,
+    "chunk_min_chars": 25,
+    "barge_in": true,
+    "barge_threshold_above_floor": 28.0,
+    "barge_sustain_seconds": 0.25
+  },
   "clap": {
     "enabled": true,
     "count": 2,

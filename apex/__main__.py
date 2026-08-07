@@ -14,9 +14,11 @@ import argparse
 import sys
 import threading
 import time
+from datetime import datetime
 
 from apex import config as config_module
 from apex import persona
+from apex.audio.speech import SentenceChunker, StreamingSpeech
 from apex.audio.stt import Transcriber, find_wake_word
 from apex.awareness import Awareness
 from apex.brain import make_brain
@@ -41,6 +43,12 @@ class Apex:
             max_results=cfg.get("vault.max_search_results", 12),
             max_note_chars=cfg.get("vault.max_note_chars", 8000),
         )
+
+        self.streaming = bool(cfg.get("speech.streaming", True))
+        self.chunk_min_chars = int(cfg.get("speech.chunk_min_chars", 25))
+        self.barge_enabled = bool(cfg.get("speech.barge_in", True))
+        self.barge_threshold = float(cfg.get("speech.barge_threshold_above_floor", 28.0))
+        self.barge_sustain = float(cfg.get("speech.barge_sustain_seconds", 0.25))
 
         self.wake_words = cfg.get("wake.words", ["apex"])
         self.conversation_timeout = float(cfg.get("wake.conversation_timeout", 30))
@@ -180,6 +188,69 @@ class Apex:
         self.speaker.say(text)
         self.bridge.set_phase("idle")
 
+    def _respond_streaming(self, text: str) -> tuple[str, bool]:
+        """Fala a resposta conforme ela é gerada, e deixa ser interrompida.
+
+        É o que separa assistente de voz de JARVIS: a primeira frase já está no
+        alto-falante enquanto o modelo ainda escreve a segunda, e falar por cima
+        dele corta o som na hora.
+        """
+        chunker = SentenceChunker(min_chars=self.chunk_min_chars)
+        stream = StreamingSpeech(self.speaker, on_chunk=self._on_chunk_spoken)
+        stop_watch = threading.Event()
+        barged = threading.Event()
+
+        def watch() -> None:
+            # Limiar bem acima do de fala normal: sem cancelamento de eco, o
+            # microfone ouve o próprio alto-falante e ele se interromperia.
+            threshold = self.mic.noise_floor + self.barge_threshold
+            if self.mic.watch_for_speech(stop_watch, threshold, self.barge_sustain):
+                barged.set()
+                stream.stop()
+
+        self.hud.set_state("speaking")
+        self.bridge.set_phase("speaking")
+        stream.begin()
+
+        watcher: threading.Thread | None = None
+        if self.barge_enabled:
+            watcher = threading.Thread(target=watch, name="apex-barge", daemon=True)
+            watcher.start()
+        else:
+            self.mic.pause()
+
+        try:
+            for piece in self.brain.ask_streaming(text):
+                if stream.interrupted:
+                    break
+                for chunk in chunker.feed(piece):
+                    stream.push(chunk)
+            if not stream.interrupted:
+                rest = chunker.flush()
+                if rest:
+                    stream.push(rest)
+        finally:
+            stream.end()
+            stream.wait(timeout=180)
+            stop_watch.set()
+            if watcher is not None:
+                watcher.join(timeout=1.0)
+            else:
+                self.mic.resume()
+            # Descarta o eco do próprio alto-falante antes de voltar a ouvir.
+            time.sleep(0.2)
+            self.mic.flush()
+
+        self.bridge.end_stream()
+        turn = getattr(self.brain, "last_turn", None)
+        spoken = stream.spoken_text or (turn.text if turn else "")
+        return spoken or "Feito.", barged.is_set()
+
+    def _on_chunk_spoken(self, chunk: str) -> None:
+        """Cada pedaço aparece no HUD e no console no instante em que é falado."""
+        self.hud.set_said(chunk)
+        self.bridge.stream_chunk(chunk)
+
     def handle_command(self, text: str) -> None:
         self.ask_text(text)
 
@@ -198,16 +269,25 @@ class Apex:
         self.bridge.bump("cmd")
 
         started = time.monotonic()
-        with self._brain_lock:
-            turn = self.brain.ask(text)
-        self.bridge.last_latency = int((time.monotonic() - started) * 1000)
+        usa_fluxo = self.streaming and hasattr(self.brain, "ask_streaming")
 
+        if usa_fluxo:
+            with self._brain_lock:
+                reply, interrompido = self._respond_streaming(text)
+            if interrompido:
+                self.hud.log("interrompido pelo usuário")
+                self.bridge.push("sys", "Interrompido — pode falar.")
+        else:
+            with self._brain_lock:
+                turn = self.brain.ask(text)
+            reply = turn.text or "Feito."
+            self.speak(reply)
+
+        self.bridge.last_latency = int((time.monotonic() - started) * 1000)
         self.hud.tokens = self.brain.last_usage
         self.bridge.tokens = self.brain.last_usage
-        self.vault.append_daily_log(f"“{text}” → {turn.text[:160]}")
+        self.vault.append_daily_log(f"“{text}” → {reply[:160]}")
 
-        reply = turn.text or "Feito."
-        self.speak(reply)
         self.window_until = time.monotonic() + self.conversation_timeout
         self.bridge.window_until = self.window_until
         self.hud.set_state("idle")
@@ -236,8 +316,8 @@ class Apex:
                 self.web = None
 
         self.hud.log(f"piso de ruído em {self.mic.noise_floor:.0f} dB")
-        self.hud.log(f"diga “{self.wake_words[0]}” ou bata duas palmas")
         self.hud.set_state("idle")
+        self._boot_sequence()
 
         try:
             self._event_loop()
@@ -245,6 +325,54 @@ class Apex:
             pass
         finally:
             self.shutdown()
+
+    def _boot_sequence(self) -> None:
+        """O momento 'sistemas online'.
+
+        É teatro — mas do tipo certo: cada linha relata um fato verificado
+        agora, não uma animação. Um assistente que abre dizendo o que
+        carregou é um assistente que você confia mais no minuto seguinte.
+        """
+        from apex.tools import REGISTRY  # noqa: PLC0415
+
+        stats = self.vault.stats()
+        cerebro = str(self.config.get("brain", "claude")).lower()
+        cerebro_desc = (
+            f"{self.config.get('model')} · esforço {self.config.get('effort')}"
+            if cerebro in ("claude", "anthropic")
+            else f"{self.config.get('ollama.model')} · local"
+        )
+
+        linhas = [
+            ("núcleo", cerebro_desc),
+            ("ouvidos", f"whisper {self.config.get('stt.model')} · local"),
+            ("voz", f"{self.config.get('tts.engine')} · pt-BR"),
+            ("ferramentas", f"{len(REGISTRY)} carregadas"),
+            ("memória", f"{stats['wiki']} notas na wiki, {stats['raw']} capturas"),
+            ("gatilhos", f"nome “{self.wake_words[0]}”, duas palmas, agendador"),
+        ]
+
+        for chave, valor in linhas:
+            self.hud.log(f"{chave}: {valor}")
+            self.bridge.push("sys", f"{chave}: {valor}")
+            time.sleep(0.18)
+
+        saudacao = self._greeting()
+        self.hud.log("online")
+        self.speak(saudacao)
+
+    def _greeting(self) -> str:
+        """Cumprimento pela hora. Curto — ninguém quer discurso às 7 da manhã."""
+        hora = datetime.now().hour
+        if hora < 5:
+            periodo = "Ainda acordado."
+        elif hora < 12:
+            periodo = "Bom dia."
+        elif hora < 18:
+            periodo = "Boa tarde."
+        else:
+            periodo = "Boa noite."
+        return f"{periodo} Sistemas online. Tô ouvindo."
 
     def _event_loop(self) -> None:
         for kind, payload in self.mic.events():

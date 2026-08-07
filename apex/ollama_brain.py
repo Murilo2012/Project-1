@@ -81,6 +81,67 @@ class OllamaError(RuntimeError):
     pass
 
 
+class _StreamCleaner:
+    """Filtra o lixo do modelo local ENQUANTO ele chega.
+
+    Limpar só no fim não serve pra fala em fluxo: um `<think>` partido em três
+    pedaços escaparia pro alto-falante antes de a limpeza acontecer. Este
+    filtro segura o texto enquanto pode haver marcação abrindo, e só libera o
+    que é seguro falar.
+    """
+
+    OPENERS = ("<think>", "<thinking>", "<|")
+    CLOSERS = {"<think>": "</think>", "<thinking>": "</thinking>", "<|": "|>"}
+
+    def __init__(self) -> None:
+        self._buffer = ""
+        self._inside: str | None = None
+
+    def feed(self, piece: str) -> str:
+        self._buffer += piece
+        out: list[str] = []
+
+        while self._buffer:
+            if self._inside is not None:
+                closer = self.CLOSERS[self._inside]
+                end = self._buffer.find(closer)
+                if end < 0:
+                    return "".join(out)  # ainda dentro do bloco: segura tudo
+                self._buffer = self._buffer[end + len(closer):]
+                self._inside = None
+                continue
+
+            starts = [(self._buffer.find(o), o) for o in self.OPENERS]
+            starts = [(i, o) for i, o in starts if i >= 0]
+            if starts:
+                index, opener = min(starts)
+                out.append(self._buffer[:index])
+                self._buffer = self._buffer[index:]
+                self._inside = opener
+                continue
+
+            # Pode ser uma marcação chegando pela metade ("<thi"). Segura a
+            # cauda até o próximo pedaço decidir se era marcação ou texto.
+            tail_size = max(len(o) for o in self.OPENERS) - 1
+            cut = self._buffer.rfind("<", max(0, len(self._buffer) - tail_size))
+            if cut >= 0:
+                out.append(self._buffer[:cut])
+                self._buffer = self._buffer[cut:]
+                return "".join(out)
+
+            out.append(self._buffer)
+            self._buffer = ""
+
+        return "".join(out)
+
+    def flush(self) -> str:
+        """O que sobrou. Se ficou preso dentro de um bloco, descarta."""
+        rest = "" if self._inside is not None else self._buffer
+        self._buffer = ""
+        self._inside = None
+        return rest
+
+
 def _post(host: str, path: str, payload: dict, timeout: float) -> dict:
     request = urllib.request.Request(
         f"{host.rstrip('/')}{path}",
@@ -165,6 +226,7 @@ class OllamaBrain:
         )
         self.messages: list[dict] = []
         self.last_usage: dict[str, int] = {}
+        self.last_turn: Turn | None = None
 
     def _build_tool_list(self) -> list[dict]:
         allowed = self.config.get("ollama.tools") or DEFAULT_LOCAL_TOOLS
@@ -266,6 +328,111 @@ class OllamaBrain:
             "Me embananei em muitos passos. Pede de outro jeito.",
             tool_calls, time.monotonic() - started,
         )
+
+    # -- fluxo ------------------------------------------------------------
+
+    def ask_streaming(self, user_text: str):
+        """Igual ao ask(), devolvendo o texto conforme sai do modelo.
+
+        Modelo local costuma ser mais lento que a API, então o ganho de
+        latência aqui é ainda maior — a primeira frase sai enquanto o resto
+        ainda está sendo gerado.
+        """
+        started = time.monotonic()
+        self.messages.append({"role": "user", "content": user_text})
+        self._trim_history()
+
+        tool_calls: list[str] = []
+        final: list[str] = []
+        buffer = _StreamCleaner()
+
+        for _iteration in range(MAX_TOOL_ITERATIONS):
+            try:
+                requested, content = yield from self._stream_once(buffer, final)
+            except urllib.error.URLError as exc:
+                self.last_turn = Turn(f"Ollama fora do ar. {exc.reason}.", tool_calls, 0)
+                yield self.last_turn.text
+                return
+            except Exception as exc:  # noqa: BLE001
+                self.last_turn = Turn(f"Erro no cérebro local: {exc}", tool_calls, 0)
+                yield self.last_turn.text
+                return
+
+            if not requested:
+                break
+
+            self.messages.append({
+                "role": "assistant", "content": content, "tool_calls": requested,
+            })
+            for call in requested:
+                function = call.get("function", {}) or {}
+                name = function.get("name", "")
+                arguments = function.get("arguments") or {}
+                if isinstance(arguments, str):
+                    try:
+                        arguments = json.loads(arguments)
+                    except json.JSONDecodeError:
+                        arguments = {}
+                tool_calls.append(name)
+                self._run_tool(name, arguments)
+
+            final.clear()  # preâmbulo antes da ferramenta já foi falado
+            self._trim_history()
+
+        self.last_turn = Turn(
+            self._clean("".join(final)), tool_calls, time.monotonic() - started
+        )
+
+    def _stream_once(self, cleaner: "_StreamCleaner", final: list[str]):
+        """Uma passada de streaming. Devolve (tool_calls, texto_acumulado)."""
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "system", "content": self.system}, *self.messages],
+            "tools": self.tools,
+            "stream": True,
+            "options": self.options,
+        }
+        if not self.think:
+            payload["think"] = False
+
+        request = urllib.request.Request(
+            f"{self.host.rstrip('/')}/api/chat",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        requested: list[dict] = []
+        content_parts: list[str] = []
+
+        with urllib.request.urlopen(request, timeout=self.timeout) as response:  # noqa: S310
+            for raw in response:
+                line = raw.decode("utf-8").strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                message = event.get("message") or {}
+                if message.get("tool_calls"):
+                    requested.extend(message["tool_calls"])
+
+                piece = message.get("content") or ""
+                if piece:
+                    content_parts.append(piece)
+                    final.append(piece)
+                    # A limpeza tem que acontecer no fluxo: <think> chegando em
+                    # pedaços não pode escapar pro alto-falante.
+                    speakable = cleaner.feed(piece)
+                    if speakable:
+                        yield speakable
+
+                if event.get("done"):
+                    self._record_usage(event)
+
+        return requested, "".join(content_parts)
 
     # -- ferramentas ------------------------------------------------------
 

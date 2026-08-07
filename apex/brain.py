@@ -77,6 +77,8 @@ class Brain:
         )
         self.messages: list[dict] = []
         self.last_usage: dict[str, int] = {}
+        # Preenchido ao fim de ask_streaming — o gerador não pode devolver.
+        self.last_turn: Turn | None = None
 
     # -- histórico --------------------------------------------------------
 
@@ -202,6 +204,97 @@ class Brain:
             tool_calls,
             time.monotonic() - started,
         )
+
+    # -- fluxo ------------------------------------------------------------
+
+    def ask_streaming(self, user_text: str):
+        """Mesma coisa que ask(), mas devolvendo o texto conforme ele sai.
+
+        É o que derruba a latência: em vez de esperar a resposta inteira pra
+        começar a sintetizar, a primeira frase já vai pro alto-falante enquanto
+        o modelo ainda está escrevendo a segunda.
+
+        O Turn completo fica em `self.last_turn` quando o gerador termina.
+        """
+        started = time.monotonic()
+        self.messages.append({"role": "user", "content": user_text})
+        self._trim_history()
+
+        tool_calls: list[str] = []
+        pause_resumes = 0
+        final_text: list[str] = []
+
+        for _iteration in range(MAX_TOOL_ITERATIONS):
+            try:
+                with self.client.messages.stream(
+                    model=self.model,
+                    max_tokens=self.max_tokens,
+                    system=[{"type": "text", "text": self.system,
+                             "cache_control": {"type": "ephemeral"}}],
+                    messages=self.messages,
+                    tools=self.tools,
+                    thinking={"type": "adaptive"},
+                    output_config={"effort": self.effort},
+                ) as stream:
+                    for event in stream:
+                        if (event.type == "content_block_delta"
+                                and getattr(event.delta, "type", "") == "text_delta"):
+                            piece = event.delta.text
+                            final_text.append(piece)
+                            yield piece
+                    response = stream.get_final_message()
+            except anthropic.RateLimitError:
+                self.last_turn = Turn("Tô no limite de uso da API.", tool_calls, 0)
+                yield self.last_turn.text
+                return
+            except anthropic.AuthenticationError:
+                self.last_turn = Turn("A chave da API foi rejeitada.", tool_calls, 0)
+                yield self.last_turn.text
+                return
+            except anthropic.APIConnectionError:
+                self.last_turn = Turn("Sem conexão com a API.", tool_calls, 0)
+                yield self.last_turn.text
+                return
+            except anthropic.APIStatusError as exc:
+                self.last_turn = Turn(f"A API devolveu erro {exc.status_code}.", tool_calls, 0)
+                yield self.last_turn.text
+                return
+
+            self._record_usage(response)
+
+            if response.stop_reason == "refusal":
+                self.messages.append({"role": "assistant", "content": response.content})
+                self.last_turn = Turn("Não vou fazer isso.", tool_calls,
+                                      time.monotonic() - started)
+                yield self.last_turn.text
+                return
+
+            self.messages.append({"role": "assistant", "content": response.content})
+
+            if response.stop_reason == "pause_turn":
+                pause_resumes += 1
+                if pause_resumes > MAX_PAUSE_RESUMES:
+                    break
+                continue
+
+            tool_uses = [b for b in response.content if b.type == "tool_use"]
+            if not tool_uses:
+                break
+
+            results = []
+            for block in tool_uses:
+                tool_calls.append(block.name)
+                results.append(self._run_tool(block))
+
+            # Texto antes de uma chamada de ferramenta é preâmbulo ("deixa eu
+            # ver"). Já foi falado; não deve entrar no texto final de novo.
+            final_text.clear()
+
+            self.messages.append({"role": "user", "content": results})
+            self._trim_history()
+
+        self.last_turn = Turn("".join(final_text).strip(), tool_calls,
+                              time.monotonic() - started)
 
     # -- execução de ferramenta com o gate --------------------------------
 
