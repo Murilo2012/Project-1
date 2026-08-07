@@ -6,13 +6,19 @@ programação, e um servidor MCP que dá ao Claude acesso às ações do JARVIS.
 
 ## Instalação
 
+**No fork `Murilo2012/Mark-L`, branch `claude/connect-jarvis-github-3p1ler`, o
+kit já vem aplicado.** Basta clonar e instalar as dependências:
+
 ```bash
-# 1. Fork em https://github.com/FatihMakes/Mark-L (botão Fork), depois:
-git clone https://github.com/Murilo2012/Mark-L.git
+git clone -b claude/connect-jarvis-github-3p1ler https://github.com/Murilo2012/Mark-L.git
 cd Mark-L
 pip install -r requirements.txt
+```
 
-# 2. Copie a pasta jarvis/ deste repositório para dentro do Mark-L e rode:
+Para aplicar em outra cópia do Mark-L, copie a pasta `jarvis/` para dentro dela
+e rode:
+
+```bash
 python jarvis/instalar.py
 ```
 

@@ -99,13 +99,27 @@ def instalar_portugues(root: Path) -> None:
 
 # ── 2. Claude Code como motor de programação ────────────────────────────────
 
+def _ler_preservando(arquivo: Path) -> tuple[str, str]:
+    """Lê o arquivo sem traduzir quebras de linha.
+
+    Os fontes do Mark-L são CRLF. Ler e escrever pelo caminho normal do Python
+    converteria tudo para LF, e o patch de 10 linhas viraria um diff do arquivo
+    inteiro. Devolve (conteúdo, quebra_de_linha_dominante).
+    """
+    with open(arquivo, "r", encoding="utf-8", newline="") as f:
+        bruto = f.read()
+
+    quebra = "\r\n" if bruto.count("\r\n") > bruto.count("\n") - bruto.count("\r\n") else "\n"
+    return bruto, quebra
+
+
 def _patch_factory(arquivo: Path, func_name: str) -> None:
-    """Troca a função-fábrica do Gemini por um import do claude_backend.
+    """Troca a função-fábrica do Gemini por um wrapper do claude_backend.
 
     Usa AST para achar as linhas exatas da função, em vez de casar texto —
     assim o patch sobrevive a mudanças de formatação no upstream.
     """
-    fonte = arquivo.read_text(encoding="utf-8")
+    fonte, quebra = _ler_preservando(arquivo)
 
     if "claude_backend" in fonte:
         warn.append(f"{arquivo.name} já estava com o patch — pulei.")
@@ -132,13 +146,18 @@ def _patch_factory(arquivo: Path, func_name: str) -> None:
     inicio = alvo.lineno - 1              # ast conta a partir de 1
     fim = alvo.end_lineno                 # exclusivo depois do fatiamento
 
+    substituto = SUBSTITUTO.format(alias=func_name)
+    if quebra != "\n":
+        substituto = substituto.replace("\n", quebra)
+
     _backup(arquivo)
-    linhas[inicio:fim] = [SUBSTITUTO.format(alias=func_name)]
-    arquivo.write_text("".join(linhas), encoding="utf-8")
+    linhas[inicio:fim] = [substituto]
+    with open(arquivo, "w", encoding="utf-8", newline="") as f:
+        f.write("".join(linhas))
 
     # Só declaramos sucesso se o arquivo ainda for Python válido.
     try:
-        ast.parse(arquivo.read_text(encoding="utf-8"))
+        ast.parse(_ler_preservando(arquivo)[0])
     except SyntaxError as e:
         shutil.copy2(arquivo.with_suffix(arquivo.suffix + BACKUP_SUFFIX), arquivo)
         fail.append(f"{arquivo.name}: patch quebrou a sintaxe ({e}) — revertido.")
