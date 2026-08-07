@@ -16,8 +16,11 @@ Instalar o Claude Code: https://claude.com/claude-code
 """
 from __future__ import annotations
 
+import os
+import re
 import shutil
 import subprocess
+from pathlib import Path
 
 # O dev_agent encadeia planejamento, escrita e até 5 tentativas de correção.
 # 10 minutos cobrem o pior caso sem travar a interface para sempre.
@@ -92,6 +95,53 @@ def _gemini(model_name: str = ""):
     return _W()
 
 
+def _versao(caminho: Path) -> tuple:
+    """Extrai o número de versão do caminho, para preferir a cópia mais nova."""
+    nums = re.findall(r"(\d+)\.(\d+)\.(\d+)", str(caminho))
+    return tuple(int(n) for n in nums[-1]) if nums else (0, 0, 0)
+
+
+def encontrar_claude() -> str | None:
+    """Localiza o executável do Claude Code, dentro ou fora do PATH.
+
+    O PATH é o caminho normal, mas nem sempre existe: o npm pode ter baixado o
+    pacote sem rodar o postinstall que cria o comando, e a extensão do VS Code e
+    o app do Claude Desktop trazem o próprio binário embutido, sem publicá-lo.
+    Esses binários são o mesmo programa e funcionam igual quando chamados pelo
+    caminho completo, então vale usá-los em vez de exigir uma quarta instalação.
+    """
+    do_path = shutil.which("claude")
+    if do_path:
+        return do_path
+
+    appdata = os.environ.get("APPDATA", "")
+    local = os.environ.get("LOCALAPPDATA", "")
+    casa = Path.home()
+
+    fixos = [
+        Path(appdata) / "npm" / "claude.cmd",
+        Path(local) / "Programs" / "claude" / "claude.exe",
+        casa / ".local" / "bin" / "claude",
+        casa / ".claude" / "local" / "claude",
+    ]
+    # Binários embutidos em outros produtos da Anthropic.
+    padroes = [
+        (casa, ".vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude.exe"),
+        (Path(local), "Packages/Claude_*/LocalCache/Roaming/Claude/claude-code/*/claude.exe"),
+    ]
+
+    candidatos = [c for c in fixos if c.is_file()]
+    for base, padrao in padroes:
+        if str(base):
+            candidatos.extend(c for c in base.glob(padrao) if c.is_file())
+
+    if not candidatos:
+        return None
+
+    candidatos.sort(key=_versao, reverse=True)
+    return str(candidatos[0])
+
+
 def get_model(model_name: str = ""):
     """Drop-in das fábricas do dev_agent e do code_helper.
 
@@ -100,7 +150,7 @@ def get_model(model_name: str = ""):
     """
     global _avisado
 
-    binary = shutil.which("claude")
+    binary = encontrar_claude()
     if binary:
         return _ClaudeModel(binary)
 

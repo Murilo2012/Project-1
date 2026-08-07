@@ -55,22 +55,25 @@ def _procurar_instalado() -> list[Path]:
     return achados
 
 
-passo("1. Comando 'claude' no PATH")
-binario = shutil.which("claude")
-if binario:
-    print(f"   encontrado: {binario}")
-else:
-    print("   NÃO está no PATH deste terminal.")
-    instalado = _procurar_instalado()
-    if instalado:
-        print("   Mas ele ESTÁ instalado, aqui:")
-        for caminho in instalado:
+passo("1. Onde está o Claude Code")
+from claude_backend import encontrar_claude
+
+no_path = shutil.which("claude")
+binario = encontrar_claude()
+
+if no_path:
+    print(f"   no PATH: {no_path}")
+elif binario:
+    print(f"   fora do PATH, mas utilizável: {binario}")
+    print("   O JARVIS vai chamá-lo por esse caminho — não precisa fazer nada.")
+    outros = _procurar_instalado()
+    if outros:
+        print("   Outras cópias encontradas:")
+        for caminho in outros:
             print(f"      {caminho}")
-        print("   O PATH só é lido quando o terminal abre — feche esta janela,")
-        print("   abra outra e rode este teste de novo.")
-    else:
-        print("   E não achei instalação nos lugares habituais.")
-        print("   Instale em https://claude.com/claude-code e reabra o terminal.")
+else:
+    print("   NÃO encontrado, nem no PATH nem nos lugares habituais.")
+    print("   Instale em https://claude.com/claude-code e reabra o terminal.")
     print("   Enquanto isso o agente de código usa o Gemini — funciona, erra mais.")
     falhas += 1
 
