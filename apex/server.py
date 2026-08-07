@@ -193,7 +193,7 @@ class Handler(BaseHTTPRequestHandler):
             if not page.exists():
                 self._send(404, b"console.html nao encontrado", "text/plain; charset=utf-8")
                 return
-            html = page.read_text(encoding="utf-8")
+            html = page.read_text(encoding="utf-8-sig")
             # O token entra na página servida, não na URL que o usuário digita.
             html = html.replace("__APEX_TOKEN__", self.bridge.token)
             self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")

@@ -125,7 +125,7 @@ class Vault:
         path = self.resolve(relative)
         if not path.exists():
             raise FileNotFoundError(f"nota não encontrada: {relative}")
-        content = path.read_text(encoding="utf-8", errors="replace")
+        content = path.read_text(encoding="utf-8-sig", errors="replace")
         if len(content) > self.max_note_chars:
             content = content[: self.max_note_chars] + "\n\n[...nota truncada...]"
         return content
@@ -153,7 +153,7 @@ class Vault:
         hits: list[SearchHit] = []
         for path in self.root.rglob("*.md"):
             try:
-                content = path.read_text(encoding="utf-8", errors="replace")
+                content = path.read_text(encoding="utf-8-sig", errors="replace")
             except OSError:
                 continue
 

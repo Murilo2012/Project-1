@@ -91,7 +91,7 @@ def load(path: str | Path | None = None) -> Config:
 
     if not EXAMPLE_CONFIG_PATH.exists():
         raise ConfigError(f"config.example.json não encontrado em {EXAMPLE_CONFIG_PATH}")
-    defaults = json.loads(EXAMPLE_CONFIG_PATH.read_text(encoding="utf-8"))
+    defaults = json.loads(EXAMPLE_CONFIG_PATH.read_text(encoding="utf-8-sig"))
 
     if not config_path.exists():
         config_path.write_text(
@@ -101,7 +101,7 @@ def load(path: str | Path | None = None) -> Config:
         return Config(defaults, config_path)
 
     try:
-        user_data = json.loads(config_path.read_text(encoding="utf-8"))
+        user_data = json.loads(config_path.read_text(encoding="utf-8-sig"))
     except json.JSONDecodeError as exc:
         raise ConfigError(f"{config_path} tem JSON inválido: {exc}") from exc
 

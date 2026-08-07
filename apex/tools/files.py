@@ -45,7 +45,7 @@ def read_file(ctx: ToolContext, path: str, max_chars: int = MAX_READ_CHARS) -> s
         size_mb = target.stat().st_size / 1_048_576
         return f"{target.name} é binário ({size_mb:.1f} MB). Não dá pra ler como texto."
 
-    content = target.read_text(encoding="utf-8", errors="replace")
+    content = target.read_text(encoding="utf-8-sig", errors="replace")
     if len(content) > max_chars:
         return content[:max_chars] + f"\n\n[...cortado, o arquivo tem {len(content)} caracteres...]"
     return content or "[arquivo vazio]"

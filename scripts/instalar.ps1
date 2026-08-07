@@ -61,6 +61,18 @@ if ($LASTEXITCODE -ne 0) {
 # --- Config -----------------------------------------------------------------
 
 Passo "Configuração"
+
+# Grava UTF-8 SEM BOM. O `Set-Content -Encoding UTF8` do PowerShell 5.1 escreve
+# COM BOM, e os três bytes invisíveis no começo do arquivo fazem o json do
+# Python recusar: "Unexpected UTF-8 BOM". Este é o jeito que funciona nas duas
+# versões do PowerShell.
+function Write-Utf8NoBom($caminho, $texto) {
+    $semBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText(
+        [System.IO.Path]::GetFullPath((Join-Path $PWD $caminho)), $texto, $semBom
+    )
+}
+
 if (-not (Test-Path "config.json")) {
     Copy-Item "config.example.json" "config.json"
     Write-Host "  config.json criado a partir do exemplo"
@@ -71,13 +83,21 @@ if (-not $config.anthropic_api_key) {
     Write-Host ""
     Write-Host "  Preciso da sua chave da API da Anthropic." -ForegroundColor Yellow
     Write-Host "  Pegue em: https://console.anthropic.com/settings/keys"
-    Write-Host "  (Enter pra pular e preencher o config.json na mão)"
+    Write-Host "  (Enter pra pular — dá pra rodar local com .\rodar.bat --local)"
     $chave = Read-Host "  Chave"
     if ($chave) {
-        $config.anthropic_api_key = $chave
-        $config | ConvertTo-Json -Depth 10 | Set-Content "config.json" -Encoding UTF8
+        $config.anthropic_api_key = $chave.Trim()
+        Write-Utf8NoBom "config.json" ($config | ConvertTo-Json -Depth 10)
         Write-Host "  Chave salva no config.json"
     }
+}
+
+# Conferência: se o Python não conseguir ler o config, melhor descobrir agora
+# do que na primeira execução.
+& $py -c "import sys; sys.path.insert(0,'.'); from apex import config; config.load(); print('  config.json lido sem erro')"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  config.json está ilegível. Apague-o e rode a instalação de novo." -ForegroundColor Yellow
+    exit 1
 }
 
 # --- Voz --------------------------------------------------------------------

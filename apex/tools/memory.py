@@ -131,7 +131,7 @@ def list_skills(ctx: ToolContext) -> str:
     for skill_file in sorted(skills_dir.glob("*/SKILL.md")):
         name = skill_file.parent.name
         description = ""
-        for line in skill_file.read_text(encoding="utf-8").splitlines():
+        for line in skill_file.read_text(encoding="utf-8-sig").splitlines():
             stripped = line.strip()
             if stripped.lower().startswith("descricao:") or stripped.lower().startswith("descrição:"):
                 description = stripped.split(":", 1)[1].strip()
@@ -160,4 +160,4 @@ def read_skill(ctx: ToolContext, name: str) -> str:
     skill_file = ctx.skills_dir / safe / "SKILL.md"
     if not skill_file.exists():
         return f"Skill '{name}' não existe. Use list_skills pra ver as disponíveis."
-    return skill_file.read_text(encoding="utf-8")
+    return skill_file.read_text(encoding="utf-8-sig")
