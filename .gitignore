@@ -1,0 +1,24 @@
+# A chave da API mora aqui. Nunca comitar.
+config.json
+
+# Ambiente
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Memória do APEX — é sua, não do repositório.
+vault/raw/**
+vault/wiki/**
+vault/outputs/**
+!vault/**/.gitkeep
+
+# Vozes baixadas (arquivos grandes, dá pra rebaixar)
+*.onnx
+*.onnx.json
+voices/
+
+# Sistema
+.DS_Store
+Thumbs.db

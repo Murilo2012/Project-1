@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APEX · console</title>
+<style>
+  :root {
+    --void:#04070E; --deep:#070C16; --panel:#0A121F; --raise:#0E1828; --edge:#16243A;
+    --ink:#D8E6F7; --dim:#5F7794; --faint:#33465F;
+    --cyan:#4FA8FF; --halo:#8CD4FF; --ok:#2FD68A; --warn:#FFC24B; --hot:#FF5C5C;
+    --f-cond:'Arial Narrow','Roboto Condensed','Liberation Sans Narrow','Helvetica Neue',Arial,sans-serif;
+    --f-mono:ui-monospace,'Cascadia Mono','SF Mono','Segoe UI Mono','Roboto Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; color:var(--ink); font-family:var(--f-mono);
+    font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased;
+    background:radial-gradient(ellipse 90% 60% at 50% 0%, #0A1526 0%, transparent 62%), var(--void);
+  }
+  .shell{max-width:1420px;margin:0 auto;padding:0 14px 30px}
+  .lbl{font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--faint)}
+
+  .topbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:14px 4px 13px;border-bottom:1px solid var(--edge)}
+  .brand{font-family:var(--f-cond);font-size:21px;font-weight:700;letter-spacing:.34em;text-transform:uppercase}
+  .brand b{color:var(--cyan)}
+  .sep{width:1px;height:16px;background:var(--edge)}
+  .grow{flex:1 1 auto}
+  .stat{display:inline-flex;align-items:center;gap:7px}
+  .stat .lbl{color:var(--dim)}
+  .led{width:6px;height:6px;border-radius:50%;background:var(--faint);flex:none}
+  .led.on{background:var(--ok);box-shadow:0 0 7px var(--ok)}
+  .led.busy{background:var(--cyan);box-shadow:0 0 7px var(--cyan);animation:blink 1.3s infinite}
+  .led.bad{background:var(--hot);box-shadow:0 0 7px var(--hot)}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  @media (prefers-reduced-motion:reduce){.led.busy{animation:none}}
+  .clock{font-family:var(--f-cond);font-size:17px;letter-spacing:.16em;font-variant-numeric:tabular-nums}
+
+  .stage{display:grid;gap:12px;margin-top:12px;grid-template-columns:1fr}
+  @media (min-width:1080px){.stage{grid-template-columns:268px minmax(0,1fr) 268px;align-items:start}}
+  .rail{display:flex;flex-direction:column;gap:12px;min-width:0}
+
+  .card{background:var(--panel);border:1px solid var(--edge)}
+  .card>header{padding:8px 12px;border-bottom:1px solid var(--edge);background:var(--deep);
+    display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .card>header .val{font-size:11px;color:var(--cyan);font-variant-numeric:tabular-nums}
+  .card>.body{padding:12px}
+
+  canvas.viz{display:block;width:100%;height:54px}
+  canvas#orb{display:block;width:100%;height:300px}
+  @media (min-width:1080px){canvas#orb{height:372px}}
+
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--edge);font-size:11.5px}
+  .kv:last-child{border-bottom:none}
+  .kv .k{color:var(--dim)} .kv .v{font-variant-numeric:tabular-nums}
+  .kv .v.cy{color:var(--cyan)} .kv .v.ok{color:var(--ok)}
+
+  .core{background:var(--panel);border:1px solid var(--edge);position:relative;overflow:hidden}
+  .core-top{padding:16px 14px 4px;text-align:center}
+  .state-word{font-family:var(--f-cond);font-size:26px;font-weight:700;letter-spacing:.46em;
+    text-transform:uppercase;color:var(--cyan);text-indent:.46em;min-height:34px}
+  .state-sub{min-height:18px}
+  .orb-wrap{position:relative}
+  .orb-caption{position:absolute;left:0;right:0;bottom:10px;text-align:center;color:var(--dim);
+    font-size:12px;padding:0 24px;pointer-events:none}
+
+  .feed{border-top:1px solid var(--edge);padding:12px 14px;max-height:240px;overflow-y:auto;
+    display:flex;flex-direction:column;gap:10px}
+  .msg{display:grid;grid-template-columns:46px 1fr;gap:10px}
+  .msg .who{text-align:right;padding-top:3px}
+  .msg .txt{border-left:1px solid var(--edge);padding-left:10px;word-break:break-word}
+  .msg.apex .txt{border-left-color:var(--cyan)}
+  .msg.apex .who .lbl{color:var(--cyan)}
+  .msg.sys .txt{border-left-color:var(--warn);color:var(--dim);font-size:11.5px}
+  .msg .note{color:var(--faint);font-size:10px;margin-top:2px}
+
+  .dock{display:flex;border-top:1px solid var(--edge)}
+  .dock input{flex:1;min-width:0;background:var(--deep);border:none;color:var(--ink);
+    font-family:var(--f-mono);font-size:13px;padding:12px 14px}
+  .dock input:focus{outline:none;background:var(--raise)}
+  .dock input::placeholder{color:var(--faint)}
+  .dock button{background:transparent;border:none;border-left:1px solid var(--edge);color:var(--cyan);
+    cursor:pointer;padding:0 18px;font-family:var(--f-cond);font-weight:700;font-size:12px;
+    letter-spacing:.22em;text-transform:uppercase}
+  .dock button:hover{background:var(--raise)}
+  .dock button[disabled]{color:var(--faint);cursor:default;background:transparent}
+  .dock button:focus-visible{outline:1px solid var(--halo);outline-offset:-3px}
+
+  .strip{display:grid;gap:1px;background:var(--edge);border:1px solid var(--edge);margin-top:12px;
+    grid-template-columns:repeat(2,1fr)}
+  @media (min-width:800px){.strip{grid-template-columns:repeat(5,1fr)}}
+  .cell{background:var(--panel);padding:9px 12px}
+  .cell .v{font-size:11.5px;margin-top:2px;font-variant-numeric:tabular-nums}
+  .cell .v.ok{color:var(--ok)} .cell .v.cy{color:var(--cyan)} .cell .v.no{color:var(--faint)}
+
+  .lost{margin-top:12px;padding:11px 14px;background:var(--panel);border:1px solid var(--edge);
+    border-left:2px solid var(--hot);color:var(--dim);font-size:12px}
+  footer{margin-top:20px;color:var(--faint);font-size:11px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <div class="brand">A<b>PEX</b></div>
+    <div class="sep"></div>
+    <span class="lbl">console local</span>
+    <div class="grow"></div>
+    <div class="stat"><span class="led" id="led-link"></span><span class="lbl" id="lbl-link">ligando</span></div>
+    <div class="sep"></div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+
+  <div class="lost" id="lost" hidden>
+    Perdi a conexão com o APEX. O processo Python parou? Este console só mostra —
+    quem ouve, pensa e age é ele.
+  </div>
+
+  <div class="stage">
+
+    <div class="rail">
+      <section class="card">
+        <header><span class="lbl">nível do microfone</span><span class="val" id="v-level">—</span></header>
+        <div class="body"><canvas class="viz" id="history" width="520" height="108"></canvas></div>
+      </section>
+
+      <section class="card">
+        <header><span class="lbl">calibração</span></header>
+        <div class="body">
+          <div class="kv"><span class="k">piso de ruído</span><span class="v" id="k-floor">—</span></div>
+          <div class="kv"><span class="k">limiar de voz</span><span class="v" id="k-thresh">—</span></div>
+          <div class="kv"><span class="k">janela de conversa</span><span class="v" id="k-window">fechada</span></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <header><span class="lbl">vault</span></header>
+        <div class="body">
+          <div class="kv"><span class="k">capturas cruas</span><span class="v" id="k-raw">0</span></div>
+          <div class="kv"><span class="k">notas na wiki</span><span class="v cy" id="k-wiki">0</span></div>
+          <div class="kv"><span class="k">entregas</span><span class="v" id="k-out">0</span></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="core">
+      <div class="core-top">
+        <div class="state-word" id="state-word">—</div>
+        <div class="state-sub lbl" id="state-sub">conectando ao APEX</div>
+      </div>
+      <div class="orb-wrap">
+        <canvas id="orb" width="900" height="744"></canvas>
+        <div class="orb-caption" id="orb-caption"></div>
+      </div>
+      <div class="feed" id="feed"></div>
+      <form class="dock" id="dock">
+        <input id="input" type="text" autocomplete="off" placeholder="digite um comando — ou fale, o microfone é dele" aria-label="Comando">
+        <button type="submit" id="send">Enviar</button>
+      </form>
+    </section>
+
+    <div class="rail">
+      <section class="card">
+        <header><span class="lbl">sessão</span><span class="val" id="v-uptime">00:00</span></header>
+        <div class="body">
+          <div class="kv"><span class="k">falas ouvidas</span><span class="v" id="k-utt">0</span></div>
+          <div class="kv"><span class="k">comandos</span><span class="v cy" id="k-cmd">0</span></div>
+          <div class="kv"><span class="k">ignorados sem o nome</span><span class="v" id="k-ign">0</span></div>
+          <div class="kv"><span class="k">palmas</span><span class="v" id="k-clap">0</span></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <header><span class="lbl">próxima tarefa</span></header>
+        <div class="body"><div id="job" style="font-size:12px;color:var(--dim)">nenhuma agendada</div></div>
+      </section>
+
+      <section class="card">
+        <header><span class="lbl">tokens gastos</span></header>
+        <div class="body">
+          <div class="kv"><span class="k">entrada</span><span class="v" id="k-tin">0</span></div>
+          <div class="kv"><span class="k">saída</span><span class="v" id="k-tout">0</span></div>
+        </div>
+      </section>
+    </div>
+
+  </div>
+
+  <div class="strip">
+    <div class="cell"><div class="lbl">microfone</div><div class="v cy">no python</div></div>
+    <div class="cell"><div class="lbl">transcrição</div><div class="v ok">whisper local</div></div>
+    <div class="cell"><div class="lbl">voz</div><div class="v ok">piper local</div></div>
+    <div class="cell"><div class="lbl">latência</div><div class="v" id="s-lat">—</div></div>
+    <div class="cell"><div class="lbl">este console</div><div class="v no">só mostra e digita</div></div>
+  </div>
+
+  <footer>
+    <p>O microfone é do processo Python — ele já tem Whisper local, wake word e detector de palmas.
+       Este console não abre o microfone: dois processos disputando o mesmo aparelho é bug garantido.</p>
+  </footer>
+
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const TOKEN = "__APEX_TOKEN__";
+  const $ = id => document.getElementById(id);
+  const clamp = (v,a,b) => Math.max(a, Math.min(b,v));
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  const PHASES = {
+    idle:      ["ocioso",     "diga “apex” ou bata duas palmas"],
+    listening: ["ouvindo",    "janela aberta — pode falar direto"],
+    thinking:  ["processando",""],
+    speaking:  ["falando",    "microfone silenciado enquanto ele fala"],
+    confirming:["confirmar",  "responda sim ou não em voz alta"],
+    job:       ["tarefa",     "executando um job agendado"],
+  };
+
+  const S = { hist:new Array(120).fill(-120), level:-120, floor:-60, thresh:-38,
+              smooth:0, phase:"idle", feedLen:0, linked:false };
+
+  /* ------------------------------------------------------------- orbe --- */
+  const N = 620, PTS = [];
+  (() => {
+    const g = Math.PI * (3 - Math.sqrt(5));
+    for (let i=0;i<N;i++){ const y = 1 - (i/(N-1))*2, r = Math.sqrt(Math.max(0,1-y*y)), t = g*i;
+      PTS.push([Math.cos(t)*r, y, Math.sin(t)*r]); }
+  })();
+
+  function drawOrb(t){
+    const cv = $("orb"), ctx = cv.getContext("2d"), w = cv.width, h = cv.height;
+    ctx.clearRect(0,0,w,h);
+    const cx = w/2, cy = h/2, base = Math.min(w,h)*0.30;
+    const e = S.smooth, R = base * (1 + e*0.26);
+    const ry = t*0.00016, rx = Math.sin(t*0.00009)*0.32;
+    const cY = Math.cos(ry), sY = Math.sin(ry), cX = Math.cos(rx), sX = Math.sin(rx);
+    const cyan = css("--cyan"), halo = css("--halo");
+    const dead = !S.linked;
+
+    const g = ctx.createRadialGradient(cx,cy,0,cx,cy,R*(0.85+e));
+    g.addColorStop(0, dead ? "rgba(51,70,95,0.28)" : `rgba(140,212,255,${0.30+e*0.42})`);
+    g.addColorStop(.35, dead ? "rgba(51,70,95,0.10)" : `rgba(79,168,255,${0.11+e*0.20})`);
+    g.addColorStop(1, "rgba(79,168,255,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cx,cy,R*(1.5+e),0,Math.PI*2); ctx.fill();
+
+    for (let i=0;i<N;i++){
+      const [x0,y0,z0] = PTS[i];
+      let x = x0*cY + z0*sY, z = -x0*sY + z0*cY;
+      let y = y0*cX - z*sX; z = y0*sX + z*cX;
+      const ripple = 1 + e*0.20*Math.sin(i*0.7 + t*0.004);
+      const p = 1/(1.9 - z*0.55);
+      const depth = (z+1)/2;
+      ctx.fillStyle = dead ? css("--faint") : (depth > .72 ? halo : cyan);
+      ctx.globalAlpha = 0.10 + depth*(0.55 + e*0.40) * (dead ? 0.35 : 1);
+      ctx.beginPath();
+      ctx.arc(cx + x*R*ripple*p, cy + y*R*ripple*p, (0.5+depth*1.5)*(1+e*0.55), 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHistory(){
+    const cv = $("history"), ctx = cv.getContext("2d"), w = cv.width, h = cv.height;
+    ctx.clearRect(0,0,w,h);
+    const toY = db => h - clamp((db+75)/75,0,1)*h;
+    ctx.setLineDash([2,4]); ctx.lineWidth = 1;
+    ctx.strokeStyle = css("--faint");
+    ctx.beginPath(); ctx.moveTo(0,toY(S.floor)); ctx.lineTo(w,toY(S.floor)); ctx.stroke();
+    ctx.strokeStyle = css("--warn");
+    ctx.beginPath(); ctx.moveTo(0,toY(S.thresh)); ctx.lineTo(w,toY(S.thresh)); ctx.stroke();
+    ctx.setLineDash([]);
+
+    const step = w / S.hist.length, clapLine = S.floor + 22;
+    ctx.beginPath(); ctx.moveTo(0,h);
+    for (let i=0;i<S.hist.length;i++) ctx.lineTo(i*step, toY(S.hist[i]));
+    ctx.lineTo(w,h); ctx.closePath();
+    const grad = ctx.createLinearGradient(0,0,0,h);
+    grad.addColorStop(0,"rgba(79,168,255,0.22)"); grad.addColorStop(1,"rgba(79,168,255,0)");
+    ctx.fillStyle = grad; ctx.fill();
+
+    for (let i=1;i<S.hist.length;i++){
+      const db = S.hist[i];
+      ctx.strokeStyle = db > clapLine ? css("--hot") : db > S.thresh ? css("--halo") : css("--faint");
+      ctx.lineWidth = db > clapLine ? 1.8 : 1.2;
+      ctx.beginPath(); ctx.moveTo((i-1)*step, toY(S.hist[i-1])); ctx.lineTo(i*step, toY(db)); ctx.stroke();
+    }
+  }
+
+  /* ------------------------------------------------------------- render - */
+
+  function renderFeed(feed){
+    if (feed.length === S.feedLen) return;
+    S.feedLen = feed.length;
+    const names = { you:"você", apex:"apex", sys:"sistema" };
+    $("feed").innerHTML = feed.map(m =>
+      `<div class="msg ${m.who}"><div class="who"><span class="lbl">${names[m.who] || m.who}</span></div>
+       <div class="txt">${esc(m.text)}${m.note ? `<div class="note">${esc(m.note)}</div>` : ""}</div></div>`
+    ).join("");
+    $("feed").scrollTop = $("feed").scrollHeight;
+  }
+
+  function apply(d){
+    S.linked = true;
+    $("led-link").className = "led " + (d.phase === "idle" ? "on" : "busy");
+    $("lbl-link").textContent = "ligado";
+    $("lost").hidden = true;
+
+    S.level = d.level; S.floor = d.floor; S.thresh = d.thresh;
+    if (Array.isArray(d.hist) && d.hist.length) S.hist = d.hist;
+
+    const [word, sub] = PHASES[d.phase] || [d.phase, ""];
+    $("state-word").textContent = word;
+    $("state-sub").textContent = sub;
+
+    $("clock").textContent = d.clock;
+    $("v-level").textContent = d.level > -119 ? `${d.level.toFixed(0)} dB` : "—";
+    $("k-floor").textContent = `${d.floor.toFixed(0)} dB`;
+    $("k-thresh").textContent = `${d.thresh.toFixed(0)} dB`;
+
+    const win = $("k-window");
+    win.textContent = d.window > 0 ? `${d.window}s` : "fechada";
+    win.className = "v " + (d.window > 0 ? "ok" : "");
+
+    $("k-raw").textContent  = d.vault.raw;
+    $("k-wiki").textContent = d.vault.wiki;
+    $("k-out").textContent  = d.vault.outputs;
+
+    $("k-utt").textContent  = d.counters.utt || 0;
+    $("k-cmd").textContent  = d.counters.cmd || 0;
+    $("k-ign").textContent  = d.counters.ign || 0;
+    $("k-clap").textContent = d.counters.clap || 0;
+
+    $("k-tin").textContent  = (d.tokens.input_tokens || 0) + (d.tokens.cache_read_input_tokens || 0);
+    $("k-tout").textContent = d.tokens.output_tokens || 0;
+    $("s-lat").textContent  = d.latency == null ? "—" : `${d.latency} ms`;
+
+    const up = d.uptime;
+    $("v-uptime").textContent =
+      `${String(Math.floor(up/60)).padStart(2,"0")}:${String(up%60).padStart(2,"0")}`;
+
+    $("job").textContent = d.job ? `${d.job.at} — ${d.job.name}` : "nenhuma agendada";
+
+    renderFeed(d.feed || []);
+  }
+
+  function offline(){
+    S.linked = false;
+    $("led-link").className = "led bad";
+    $("lbl-link").textContent = "sem conexão";
+    $("lost").hidden = false;
+    $("state-word").textContent = "offline";
+    $("state-sub").textContent = "o processo do APEX não está respondendo";
+  }
+
+  /* ------------------------------------------------------------- rede --- */
+
+  async function poll(){
+    try {
+      const r = await fetch(`/api/state?k=${encodeURIComponent(TOKEN)}`, { cache: "no-store" });
+      if (!r.ok) throw new Error(r.status);
+      apply(await r.json());
+    } catch { offline(); }
+  }
+
+  $("dock").addEventListener("submit", async e => {
+    e.preventDefault();
+    const input = $("input"), btn = $("send");
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = ""; btn.disabled = true;
+    try {
+      const r = await fetch(`/api/ask?k=${encodeURIComponent(TOKEN)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Apex-Token": TOKEN },
+        body: JSON.stringify({ text }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        $("orb-caption").textContent = err.error || `erro ${r.status}`;
+      } else {
+        $("orb-caption").textContent = "";
+      }
+    } catch {
+      $("orb-caption").textContent = "não consegui falar com o APEX";
+    } finally {
+      btn.disabled = false;
+      input.focus();
+      poll();
+    }
+  });
+
+  /* ------------------------------------------------------------- laço --- */
+
+  function frame(t){
+    requestAnimationFrame(frame);
+    const target = clamp((S.level - S.floor) / 42, 0, 1);
+    S.smooth += (target - S.smooth) * (target > S.smooth ? 0.34 : 0.07);
+    drawOrb(t);
+    drawHistory();
+  }
+
+  function sizeAll(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    for (const [id, h] of [["orb", null], ["history", 54]]) {
+      const cv = $(id); if (!cv) continue;
+      const r = cv.getBoundingClientRect(); if (!r.width) continue;
+      cv.width = Math.round(r.width * dpr);
+      cv.height = Math.round((h ?? r.height) * dpr);
+    }
+  }
+  window.addEventListener("resize", sizeAll);
+  setTimeout(sizeAll, 60);
+
+  poll();
+  setInterval(poll, 450);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
