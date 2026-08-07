@@ -3,6 +3,7 @@
     python -m apex                    roda o daemon de voz + HUD
     python -m apex --texto            modo texto (sem microfone), pra depurar
     python -m apex --sem-hud          sem HUD, log corrido no terminal
+    python -m apex --listar-audio     lista os microfones disponíveis
     python -m apex --testar-audio     calibra e mostra níveis, pra ajustar o mic
     python -m apex --testar-cerebro   confere se o cérebro responde
     python -m apex --local            força o cérebro local (Ollama)
@@ -471,22 +472,86 @@ def run_text_mode(cfg) -> None:
     print("\nencerrado.")
 
 
-def run_audio_test(cfg) -> None:
+def list_audio_devices() -> int:
+    """Lista os microfones disponíveis com o índice de cada um.
+
+    Existe porque o dispositivo padrão do Windows frequentemente não é o
+    microfone que a pessoa acha que é — pode ser um "Stereo Mix" desligado,
+    uma webcam sem permissão, ou uma entrada virtual. O sintoma é sempre o
+    mesmo: o nível fica travado em -96 dB, que é silêncio digital.
+    """
+    try:
+        import sounddevice as sd  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001
+        print(f"Não consegui carregar o áudio: {exc}")
+        return 1
+
+    try:
+        devices = sd.query_devices()
+        padrao = sd.default.device[0]
+    except Exception as exc:  # noqa: BLE001
+        print(f"Não consegui listar os dispositivos: {exc}")
+        return 1
+
+    print("\nMicrofones disponíveis:\n")
+    achou = False
+    for index, dev in enumerate(devices):
+        if dev.get("max_input_channels", 0) < 1:
+            continue
+        achou = True
+        marca = " <- padrão do Windows" if index == padrao else ""
+        taxa = int(dev.get("default_samplerate", 0))
+        print(f"  [{index:>2}] {dev['name']}")
+        print(f"       {dev['max_input_channels']} canal(is), {taxa} Hz{marca}")
+
+    if not achou:
+        print("  Nenhum microfone encontrado.")
+        print("  Confira Windows + I > Privacidade e seguranca > Microfone.")
+        return 1
+
+    print("\nPra testar um específico:")
+    print("  .\\rodar.bat --testar-audio --dispositivo N")
+    print("\nPra fixar no config.json, coloque o número em audio.input_device.\n")
+    return 0
+
+
+def run_audio_test(cfg, device=None) -> None:
     """Mostra níveis em tempo real, pra calibrar limiar e detector de palmas."""
     from apex.audio.listener import Microphone  # noqa: PLC0415
 
-    mic = Microphone(cfg.get("audio", {}), cfg.get("clap", {}))
+    audio_cfg = dict(cfg.get("audio", {}))
+    if device is not None:
+        audio_cfg["input_device"] = device
+
+    try:
+        import sounddevice as sd  # noqa: PLC0415
+
+        escolhido = audio_cfg.get("input_device")
+        info = sd.query_devices(escolhido if escolhido is not None else sd.default.device[0])
+        print(f"Microfone: {info['name']}")
+    except Exception:  # noqa: BLE001
+        print("Microfone: padrão do sistema")
+
+    mic = Microphone(audio_cfg, cfg.get("clap", {}))
     print("Calibrando... fique em silêncio por 2 segundos.")
     mic.start()
     print(f"Piso de ruído: {mic.noise_floor:.1f} dB")
     print(f"Limiar de voz: {mic.silence_threshold_db:.1f} dB")
+
+    if mic.noise_floor < -85:
+        print("\n  AVISO: piso em silêncio digital. Este dispositivo não está")
+        print("  capturando nada. Veja os outros com:  .\\rodar.bat --listar-audio")
+
     print("\nFale e bata palmas. Ctrl+C pra sair.\n")
+
+    pico = -120.0
     try:
         for block, level, clapped in mic.blocks():
             if block is None:
                 continue
+            pico = max(pico, level)
             filled = max(0, min(40, int((level + 60) / 60 * 40)))
-            bar = "█" * filled + "░" * (40 - filled)
+            bar = "#" * filled + "." * (40 - filled)
             voice = "VOZ  " if level > mic.silence_threshold_db else "     "
             clap = "PALMAS!" if clapped else ""
             print(f"\r{level:>6.1f} dB {bar} {voice}{clap}   ", end="", flush=True)
@@ -495,6 +560,12 @@ def run_audio_test(cfg) -> None:
     finally:
         mic.stop()
         print("\n")
+        if pico < -80:
+            print("Este microfone não captou nada. O pico ficou em "
+                  f"{pico:.0f} dB, que é silêncio.")
+            print("Rode  .\\rodar.bat --listar-audio  e teste outro índice.\n")
+        else:
+            print(f"Pico captado: {pico:.0f} dB. O microfone está funcionando.\n")
 
 
 def run_brain_test(cfg) -> int:
@@ -531,6 +602,9 @@ def main() -> int:
     parser.add_argument("--texto", action="store_true", help="modo texto, sem microfone")
     parser.add_argument("--sem-hud", action="store_true", help="desliga o HUD")
     parser.add_argument("--testar-audio", action="store_true", help="calibra o microfone")
+    parser.add_argument("--listar-audio", action="store_true", help="lista os microfones")
+    parser.add_argument("--dispositivo", type=int, default=None,
+                        help="índice do microfone (veja com --listar-audio)")
     parser.add_argument("--testar-cerebro", action="store_true", help="testa o cérebro configurado")
     parser.add_argument("--local", action="store_true", help="força o cérebro local (Ollama)")
     parser.add_argument("--config", default=None, help="caminho do config.json")
@@ -545,8 +619,11 @@ def main() -> int:
     if args.local:
         cfg._data["brain"] = "ollama"  # noqa: SLF001 - override de linha de comando
 
+    if args.listar_audio:
+        return list_audio_devices()
+
     if args.testar_audio:
-        run_audio_test(cfg)
+        run_audio_test(cfg, device=args.dispositivo)
         return 0
 
     if args.testar_cerebro:

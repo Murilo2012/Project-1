@@ -1,8 +1,11 @@
-# Instalação do APEX no Windows.
+# Instalacao do APEX no Windows.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\instalar.ps1
 #
-# Cria o ambiente virtual, instala dependências, baixa a voz e testa o áudio.
+# ATENCAO AO EDITAR ESTE ARQUIVO: use SOMENTE ASCII.
+# O Windows PowerShell 5.1 le arquivos .ps1 como ANSI (Windows-1252), nao como
+# UTF-8. Qualquer acento ou travessao vira lixo e quebra o parser inteiro, com
+# erros que nao parecem ter nada a ver com a linha do acento.
 
 $ErrorActionPreference = "Stop"
 $raiz = Split-Path -Parent $PSScriptRoot
@@ -10,19 +13,27 @@ Set-Location $raiz
 
 function Passo($texto) {
     Write-Host ""
-    Write-Host "──> $texto" -ForegroundColor Red
+    Write-Host "--> $texto" -ForegroundColor Red
+}
+
+# Grava UTF-8 SEM BOM. O `Set-Content -Encoding UTF8` do PowerShell 5.1 escreve
+# COM BOM, e os tres bytes invisiveis no comeco fazem o json do Python recusar.
+function Write-Utf8NoBom($caminho, $texto) {
+    $semBom = New-Object System.Text.UTF8Encoding $false
+    $completo = [System.IO.Path]::GetFullPath((Join-Path $PWD $caminho))
+    [System.IO.File]::WriteAllText($completo, $texto, $semBom)
 }
 
 Write-Host ""
-Write-Host "  APEX — instalação" -ForegroundColor Red
-Write-Host "  ─────────────────" -ForegroundColor DarkGray
+Write-Host "  APEX - instalacao" -ForegroundColor Red
+Write-Host "  -----------------" -ForegroundColor DarkGray
 
 # --- Python -----------------------------------------------------------------
 
 Passo "Conferindo o Python"
 $python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $python) {
-    Write-Host "Python não encontrado. Instale o 3.10 ou mais novo:" -ForegroundColor Yellow
+    Write-Host "Python nao encontrado. Instale o 3.10 ou mais novo:" -ForegroundColor Yellow
     Write-Host "  winget install Python.Python.3.12"
     exit 1
 }
@@ -42,36 +53,25 @@ if (-not (Test-Path ".venv")) {
     python -m venv .venv
     Write-Host "  .venv criado"
 } else {
-    Write-Host "  .venv já existia"
+    Write-Host "  .venv ja existia"
 }
 
 $pip = ".\.venv\Scripts\pip.exe"
 $py  = ".\.venv\Scripts\python.exe"
 
-# --- Dependências -----------------------------------------------------------
+# --- Dependencias -----------------------------------------------------------
 
-Passo "Instalando dependências (demora alguns minutos)"
+Passo "Instalando dependencias (demora alguns minutos)"
 & $pip install --upgrade pip --quiet
 & $pip install -r requirements.txt
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Alguma dependência falhou. Veja o erro acima." -ForegroundColor Yellow
+    Write-Host "Alguma dependencia falhou. Veja o erro acima." -ForegroundColor Yellow
     exit 1
 }
 
 # --- Config -----------------------------------------------------------------
 
-Passo "Configuração"
-
-# Grava UTF-8 SEM BOM. O `Set-Content -Encoding UTF8` do PowerShell 5.1 escreve
-# COM BOM, e os três bytes invisíveis no começo do arquivo fazem o json do
-# Python recusar: "Unexpected UTF-8 BOM". Este é o jeito que funciona nas duas
-# versões do PowerShell.
-function Write-Utf8NoBom($caminho, $texto) {
-    $semBom = New-Object System.Text.UTF8Encoding $false
-    [System.IO.File]::WriteAllText(
-        [System.IO.Path]::GetFullPath((Join-Path $PWD $caminho)), $texto, $semBom
-    )
-}
+Passo "Configuracao"
 
 if (-not (Test-Path "config.json")) {
     Copy-Item "config.example.json" "config.json"
@@ -83,7 +83,7 @@ if (-not $config.anthropic_api_key) {
     Write-Host ""
     Write-Host "  Preciso da sua chave da API da Anthropic." -ForegroundColor Yellow
     Write-Host "  Pegue em: https://console.anthropic.com/settings/keys"
-    Write-Host "  (Enter pra pular — dá pra rodar local com .\rodar.bat --local)"
+    Write-Host "  (Enter pra pular. Da pra rodar local depois com: .\rodar.bat --local)"
     $chave = Read-Host "  Chave"
     if ($chave) {
         $config.anthropic_api_key = $chave.Trim()
@@ -92,11 +92,10 @@ if (-not $config.anthropic_api_key) {
     }
 }
 
-# Conferência: se o Python não conseguir ler o config, melhor descobrir agora
-# do que na primeira execução.
-& $py -c "import sys; sys.path.insert(0,'.'); from apex import config; config.load(); print('  config.json lido sem erro')"
+# Confere agora: melhor descobrir aqui do que na primeira execucao.
+& $py -c "import sys; sys.path.insert(0,'.'); import apex.config as c; c.load(); print('  config.json lido sem erro')"
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "  config.json está ilegível. Apague-o e rode a instalação de novo." -ForegroundColor Yellow
+    Write-Host "  config.json esta ilegivel. Apague-o e rode a instalacao de novo." -ForegroundColor Yellow
     exit 1
 }
 
@@ -105,20 +104,26 @@ if ($LASTEXITCODE -ne 0) {
 Passo "Baixando a voz do Piper (pt-BR, offline)"
 & $py -m apex.audio.tts --baixar-voz
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "  Não consegui baixar. O APEX vai cair pro edge-tts (precisa de internet)." -ForegroundColor DarkYellow
+    Write-Host "  Nao consegui baixar. O APEX vai cair pro edge-tts (precisa de internet)." -ForegroundColor DarkYellow
 }
 
-# --- Modelo de transcrição --------------------------------------------------
+# --- Modelo de transcricao --------------------------------------------------
 
-Passo "Baixando o modelo de transcrição (roda offline depois)"
-& $py -c "from faster_whisper import WhisperModel; WhisperModel('small', device='cpu', compute_type='int8'); WhisperModel('tiny', device='cpu', compute_type='int8'); print('  modelos prontos')"
+Passo "Baixando o modelo de transcricao (roda offline depois)"
+& $py -c "from faster_whisper import WhisperModel as W; W('small', device='cpu', compute_type='int8'); W('tiny', device='cpu', compute_type='int8'); print('  modelos prontos')"
+
+# --- Microfone --------------------------------------------------------------
+
+Passo "Microfones encontrados"
+& $py -m apex --listar-audio
 
 # --- Fim --------------------------------------------------------------------
 
 Write-Host ""
 Write-Host "  Pronto." -ForegroundColor Green
 Write-Host ""
-Write-Host "  Testar o microfone:  .\.venv\Scripts\python.exe -m apex --testar-audio"
-Write-Host "  Testar sem voz:      .\.venv\Scripts\python.exe -m apex --texto"
+Write-Host "  Testar o microfone:  .\rodar.bat --testar-audio"
+Write-Host "  Escolher outro mic:  .\rodar.bat --testar-audio --dispositivo N"
+Write-Host "  Testar sem voz:      .\rodar.bat --texto"
 Write-Host "  Rodar de verdade:    .\rodar.bat"
 Write-Host ""
